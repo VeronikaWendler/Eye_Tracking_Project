@@ -1,0 +1,19 @@
+# Gaze preprocessing — Study 2
+
+`study2_eye_asc.py` converts raw EyeLink `.asc` recordings into CSVs which contain trial-level gaze measures.
+
+## How to run
+
+Run the study script three times but change the `mode` setting before each run:
+
+| Mode | Gaze window | Output |
+|------|-------------|--------|
+| 1 | Response-period gaze for LE (learning phase), ES (experiential-symbolic) and EE (experiential-experiential); used for the main analyses | `Participant_ID_eye_response_phase.csv` |
+| 2 | Feedback-period gaze during learning phase | `Participant_ID_eye_feedback_phase.csv` |
+| 3 | All valid left/right fixations across the entire trial for each LE, ES and EE trial | `Participant_ID_eye_allfix_phase.csv` |
+
+I don't really use mode 3; this was just to double check things.
+
+Each output contains one row per main-task trial, including dwell times, fixation counts, first/final fixation measures, gaze switches and fixation sequences. Training trials are excluded. Each run also updates the study’s parser audit.
+
+For response gaze, fixations starting at or before the recorded button response are retained in full, including any portion after the response. There is no explicit fixed button-press buffer. All-fixation mode still applies left/right region filtering.

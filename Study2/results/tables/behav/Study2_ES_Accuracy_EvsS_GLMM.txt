@@ -1,0 +1,62 @@
+========================================
+Study 2 - ES Accuracy: E VS S GLMM - trial-level mixed model
+========================================
+
+MODEL SUMMARY
+----------------------------------------
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: corr ~ choice_type + (1 | sub_id)
+   Data: es_data_glm
+Control: glmerControl(optimizer = "bobyqa")
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   8231.2    8252.4   -4112.6    8225.2      8637 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-4.6171  0.2552  0.4277  0.5314  0.9635 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.4269   0.6534  
+Number of obs: 8640, groups:  sub_id, 24
+
+Fixed effects:
+             Estimate Std. Error z value Pr(>|z|)    
+(Intercept)   1.58262    0.14038  11.274  < 2e-16 ***
+choice_typeE -0.14734    0.05687  -2.591  0.00958 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr)
+choice_typE -0.227
+
+
+ESTIMATED MARGINAL MEANS
+----------------------------------------
+ choice_type  prob     SE  df asymp.LCL asymp.UCL
+ S           0.830 0.0198 Inf     0.787     0.865
+ E           0.808 0.0216 Inf     0.762     0.847
+
+Confidence level used: 0.95 
+Intervals are back-transformed from the logit scale 
+
+
+PAIRWISE COMPARISON: E VS S
+----------------------------------------
+$emmeans
+ choice_type  prob     SE  df asymp.LCL asymp.UCL
+ S           0.830 0.0198 Inf     0.787     0.865
+ E           0.808 0.0216 Inf     0.762     0.847
+
+Confidence level used: 0.95 
+Intervals are back-transformed from the logit scale 
+
+$contrasts
+ contrast odds.ratio     SE  df null z.ratio p.value
+ S / E          1.16 0.0659 Inf    1   2.591  0.0096
+
+Tests are performed on the log odds ratio scale 
+

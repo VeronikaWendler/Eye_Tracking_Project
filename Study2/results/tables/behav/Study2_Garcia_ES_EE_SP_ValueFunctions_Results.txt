@@ -1,0 +1,22 @@
+study 2: value estimates across ES, EE and SP
+
+participants: 24 
+
+ES and EE: estimated indifference points; SP: stated experiential ratings
+
+Descriptive statistics (mean, SD, 95% CI)
+# A tibble: 24 × 7
+   phase   p_E     n mean_value sd_value ci_low ci_high
+   <fct> <dbl> <int>      <dbl>    <dbl>  <dbl>   <dbl>
+ 1 ES      0.1    24      0.340    0.239 0.239    0.441
+ 2 ES      0.2    24      0.328    0.216 0.237    0.419
+ 3 ES      0.3    24      0.592    0.269 0.479    0.706
+ 4 ES      0.4    24      0.410    0.256 0.302    0.518
+ 5 ES      0.6    24      0.665    0.202 0.579    0.750
+ 6 ES      0.7    24      0.560    0.289 0.438    0.682
+ 7 ES      0.8    24      0.704    0.270 0.590    0.818
+ 8 ES      0.9    24      0.840    0.162 0.772    0.909
+ 9 EE      0.1    24      0.231    0.319 0.0962   0.366
+10 EE      0.2    24      0.322    0.239 0.221    0.422
+# ℹ 14 more rows
+# ℹ Use `print(n = ...)` to see more rows

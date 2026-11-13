@@ -1,0 +1,71 @@
+Study 2 - reaction time across LE, ES, and EE
+============================================================
+
+Sample information
+------------------------------------------------------------
+Number of trial-level observations: 15840 
+Number of participants: 24 
+Participants removed as extreme RT outliers:  
+
+Participant-level Wilcoxon tests
+Bonferroni corrected
+------------------------------------------------------------
+# A tibble: 3 × 9
+  .y.     group1 group2    n1    n2 statistic           p      p.adj p.adj.signif
+* <chr>   <chr>  <chr>  <int> <int>     <dbl>       <dbl>      <dbl> <chr>       
+1 Mean_RT EE     ES        24    24         6 0.00000167  0.00000501 ****        
+2 Mean_RT EE     LE        24    24       282 0.0000302   0.0000905  ****        
+3 Mean_RT ES     LE        24    24       298 0.000000358 0.00000107 ****        
+
+
+Trial-level linear mixed model
+Outcome: log reaction time
+Model: logRT ~ phase + (1 | sub_id)
+------------------------------------------------------------
+Linear mixed model fit by REML. t-tests use Satterthwaite's method ['lmerModLmerTest']
+Formula: logRT ~ phase + (1 | sub_id)
+   Data: rt_trials
+
+REML criterion at convergence: 35074.8
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-8.8870 -0.4494 -0.0777  0.3964  4.8771 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ sub_id   (Intercept) 0.3137   0.5601  
+ Residual             0.5308   0.7285  
+Number of obs: 15840, groups:  sub_id, 24
+
+Fixed effects:
+              Estimate Std. Error         df t value Pr(>|t|)    
+(Intercept) -6.932e-01  1.149e-01  2.337e+01  -6.032 3.52e-06 ***
+phaseES      5.503e-01  1.413e-02  1.581e+04  38.945  < 2e-16 ***
+phaseEE      2.914e-01  1.721e-02  1.581e+04  16.930  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+        (Intr) phasES
+phaseES -0.085       
+phaseEE -0.070  0.568
+
+
+Estimated marginal means
+Geometric mean RTs are back-transformed to seconds
+------------------------------------------------------------
+  phase     emmean        SE       df   lower.CL    upper.CL   t.ratio      p.value geometric_mean_RT_seconds CI_low_seconds CI_high_seconds
+1    LE -0.6932396 0.1149364 23.36900 -0.9307961 -0.45568308 -6.031505 3.521363e-06                 0.4999538      0.3942397       0.6340147
+2    ES -0.1429517 0.1146019 23.09811 -0.3799680  0.09406465 -1.247376 2.247590e-01                 0.8667960      0.6838833       1.0986308
+3    EE -0.4018709 0.1150223 23.43891 -0.6395663 -0.16417545 -3.493852 1.917978e-03                 0.6690671      0.5275212       0.8485931
+
+
+Pairwise phase comparisons
+Bonferroni corrected
+RT ratio = exponentiated log-RT difference
+------------------------------------------------------------
+  contrast   estimate         SE    df   lower.CL   upper.CL   t.ratio       p.value  RT_ratio ratio_CI_low ratio_CI_high
+1  LE - ES -0.5502879 0.01412994 15814 -0.5841183 -0.5164575 -38.94481 2.054068e-316 0.5767837    0.5575973     0.5966304
+2  LE - EE -0.2913687 0.01721023 15814 -0.3325740 -0.2501634 -16.92998  2.954428e-63 0.7472401    0.7170756     0.7786735
+3  ES - EE  0.2589192 0.01481220 15814  0.2234553  0.2943831  17.48013  2.640851e-67 1.2955291    1.2503897     1.3422980

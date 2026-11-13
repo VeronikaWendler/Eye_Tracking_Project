@@ -1,0 +1,148 @@
+EE dwell-time advantage analysis
+========================================
+
+participants: 21 
+trials: 2940 
+
+
+binning audit
+# A tibble: 21 × 3
+   sub_id n_bins n_missing
+    <int>  <int>     <int>
+ 1      2      5         0
+ 2      3      5         0
+ 3      7      5         0
+ 4      8      5         0
+ 5      9      5         0
+ 6     10      5         0
+ 7     11      5         0
+ 8     12      5         0
+ 9     13      5         0
+10     15      5         0
+# ℹ 11 more rows
+# ℹ Use `print(n = ...)` to see more rows
+
+observed participant means and 95% ci
+# A tibble: 5 × 5
+  DTA_bin n_participants p_choose_right ci_low ci_high
+  <fct>            <dbl>          <dbl>  <dbl>   <dbl>
+1 L>>R                21          0.158 0.0982   0.217
+2 L>R                 21          0.257 0.183    0.331
+3 L ~ R               21          0.504 0.453    0.555
+4 R>L                 21          0.682 0.585    0.778
+5 R>>L                21          0.858 0.803    0.914
+
+binomial mixed-effects model
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: chose_right ~ DTA_bin + (1 | sub_id)
+   Data: ee_dta
+Control: glmm_control
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   3254.6    3290.5   -1621.3    3242.6      2934 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-2.6648 -0.5953 -0.3960  0.6919  2.5760 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.02316  0.1522  
+Number of obs: 2940, groups:  sub_id, 21
+
+Fixed effects:
+            Estimate Std. Error z value Pr(>|z|)    
+(Intercept)  -1.7180     0.1215 -14.145  < 2e-16 ***
+DTA_bin2      0.6398     0.1520   4.208 2.57e-05 ***
+DTA_bin3      1.7458     0.1400  12.472  < 2e-16 ***
+DTA_bin4      2.4672     0.1479  16.678  < 2e-16 ***
+DTA_bin5      3.5366     0.1697  20.839  < 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+         (Intr) DTA_b2 DTA_b3 DTA_b4
+DTA_bin2 -0.738                     
+DTA_bin3 -0.802  0.640              
+DTA_bin4 -0.762  0.607  0.655       
+DTA_bin5 -0.664  0.529  0.571  0.550
+
+omnibus test
+Data: ee_dta
+Models:
+glmm_null: chose_right ~ 1 + (1 | sub_id)
+glmm_ee: chose_right ~ DTA_bin + (1 | sub_id)
+          npar    AIC    BIC  logLik -2*log(L)  Chisq Df Pr(>Chisq)    
+glmm_null    2 4078.6 4090.5 -2037.3    4074.6                         
+glmm_ee      6 3254.6 3290.5 -1621.3    3242.6 831.98  4  < 2.2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+model-based probabilities and 95% ci
+ DTA_bin      prob         SE  df asymp.LCL asymp.UCL
+ 1       0.1521243 0.01566628 Inf 0.1238904 0.1854308
+ 2       0.2538431 0.01950822 Inf 0.2175351 0.2939347
+ 3       0.5069378 0.02101606 Inf 0.4657931 0.5479887
+ 4       0.6790073 0.02098188 Inf 0.6365763 0.7186737
+ 5       0.8603906 0.01527581 Inf 0.8276815 0.8877331
+
+Confidence level used: 0.95 
+Intervals are back-transformed from the logit scale 
+
+bonferroni-adjusted post-hoc comparisons
+ contrast            odds.ratio         SE  df null z.ratio p.value
+ DTA_bin1 / DTA_bin2  0.5273892 0.08017937 Inf    1  -4.208  0.0003
+ DTA_bin1 / DTA_bin3  0.1745073 0.02442641 Inf    1 -12.472 <0.0001
+ DTA_bin1 / DTA_bin4  0.0848178 0.01254712 Inf    1 -16.678 <0.0001
+ DTA_bin1 / DTA_bin5  0.0291129 0.00494062 Inf    1 -20.839 <0.0001
+ DTA_bin2 / DTA_bin3  0.3308890 0.04114690 Inf    1  -8.894 <0.0001
+ DTA_bin2 / DTA_bin4  0.1608259 0.02140286 Inf    1 -13.732 <0.0001
+ DTA_bin2 / DTA_bin5  0.0552019 0.00866169 Inf    1 -18.461 <0.0001
+ DTA_bin3 / DTA_bin4  0.4860418 0.05818453 Inf    1  -6.027 <0.0001
+ DTA_bin3 / DTA_bin5  0.1668292 0.02431864 Inf    1 -12.285 <0.0001
+ DTA_bin4 / DTA_bin5  0.3432404 0.05212160 Inf    1  -7.042 <0.0001
+
+P value adjustment: bonferroni method for 10 tests 
+Tests are performed on the log odds ratio scale 
+
+quadratic trend model
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: chose_right ~ DTA_bin_num + I(DTA_bin_num^2) + (1 | sub_id)
+   Data: ee_dta
+Control: glmm_control
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   3255.4    3279.4   -1623.7    3247.4      2936 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-2.6668 -0.6352 -0.3818  0.6645  2.6814 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.02709  0.1646  
+Number of obs: 2940, groups:  sub_id, 21
+
+Fixed effects:
+                 Estimate Std. Error z value Pr(>|z|)    
+(Intercept)      -2.55367    0.24022 -10.631  < 2e-16 ***
+DTA_bin_num       0.75737    0.16984   4.459 8.22e-06 ***
+I(DTA_bin_num^2)  0.02235    0.02782   0.803    0.422    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) DTA_b_
+DTA_bin_num -0.938       
+I(DTA_b_^2)  0.862 -0.977
+
+linear vs quadratic model comparison
+Data: ee_dta
+Models:
+glmm_linear: chose_right ~ DTA_bin_num + (1 | sub_id)
+glmm_quadratic: chose_right ~ DTA_bin_num + I(DTA_bin_num^2) + (1 | sub_id)
+               npar    AIC    BIC  logLik -2*log(L)  Chisq Df Pr(>Chisq)
+glmm_linear       3 3254.1 3272.0 -1624.0    3248.1                     
+glmm_quadratic    4 3255.4 3279.4 -1623.7    3247.4 0.6456  1     0.4217

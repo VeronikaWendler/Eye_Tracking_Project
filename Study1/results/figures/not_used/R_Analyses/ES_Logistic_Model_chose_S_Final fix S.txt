@@ -1,0 +1,36 @@
+### Logistic Mixed Model - ES Phase ###
+
+#### Model Summary ####
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: chose_S ~ OV * FinalFix_S + (1 | sub_id)
+   Data: data
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   7933.1    7967.7   -3961.5    7923.1      7555 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-2.5957 -0.5095 -0.3957  0.5879  2.7804 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.08413  0.2901  
+Number of obs: 7560, groups:  sub_id, 21
+
+Fixed effects:
+              Estimate Std. Error z value Pr(>|z|)    
+(Intercept)   -1.60392    0.13124 -12.222  < 2e-16 ***
+OV             0.08616    0.05418   1.590    0.112    
+FinalFix_S     3.27881    0.15517  21.130  < 2e-16 ***
+OV:FinalFix_S -0.36230    0.07291  -4.969 6.73e-07 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) OV     FnlF_S
+OV          -0.813              
+FinalFix_S  -0.657  0.694       
+OV:FinlFx_S  0.610 -0.750 -0.927
+
+#### Tab Model Output ####

@@ -1,0 +1,36 @@
+### Logistic Mixed Model - EE Phase ###
+
+#### Model Summary ####
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: chose_right ~ OV * DwellTimeAdvantage + (1 | sub_id)
+   Data: data
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   3252.2    3282.2   -1621.1    3242.2      2935 
+
+Scaled residuals: 
+   Min     1Q Median     3Q    Max 
+ -5.93  -0.68  -0.20   0.71 485.15 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.01377  0.1173  
+Number of obs: 2940, groups:  sub_id, 21
+
+Fixed effects:
+                      Estimate Std. Error z value Pr(>|z|)    
+(Intercept)           -0.01048    0.11051  -0.095    0.924    
+OV                    -0.03023    0.05136  -0.589    0.556    
+DwellTimeAdvantage     1.46321    0.15070   9.710   <2e-16 ***
+OV:DwellTimeAdvantage -0.05205    0.06954  -0.749    0.454    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) OV     DwllTA
+OV          -0.892              
+DwllTmAdvnt -0.041  0.038       
+OV:DwllTmAd  0.039 -0.045 -0.925
+
+#### Tab Model Output ####

@@ -1,0 +1,39 @@
+Logistic mixed model - EE phase
+
+Predictor: FixLocLastCorr 
+Outcome: correct choice
+
+Model summary
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: corr ~ OV * FixLocLastCorr + (1 | sub_id)
+   Data: model_data
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   2065.7    2095.3   -1027.8    2055.7      2752 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-6.7940  0.1472  0.2734  0.3854  1.3484 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.6934   0.8327  
+Number of obs: 2757, groups:  sub_id, 21
+
+Fixed effects:
+                  Estimate Std. Error z value Pr(>|z|)    
+(Intercept)        0.52566    0.25740   2.042   0.0411 *  
+OV                 0.05530    0.08539   0.648   0.5172    
+FixLocLastCorr     2.56645    0.30556   8.399   <2e-16 ***
+OV:FixLocLastCorr -0.19942    0.14192  -1.405   0.1600    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) OV     FxLcLC
+OV          -0.643              
+FixLcLstCrr -0.413  0.543       
+OV:FxLcLstC  0.394 -0.612 -0.919
+
+Tab model output

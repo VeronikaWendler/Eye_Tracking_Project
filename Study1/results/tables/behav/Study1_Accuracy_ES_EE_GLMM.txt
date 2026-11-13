@@ -1,0 +1,59 @@
+study 1: ES vs EE accuracy - binomial GLMM
+
+participants: 25 
+trials: 12500 
+
+trials per phase
+  phase    n
+1    EE 3500
+2    ES 9000
+
+model: corr ~ phase + (1 | sub_id)
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: corr ~ phase + (1 | sub_id)
+   Data: acc_trials
+Control: glmerControl(optimizer = "bobyqa")
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   9824.8    9847.1   -4909.4    9818.8     12497 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-4.7638  0.2828  0.3683  0.4269  0.7586 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.276    0.5254  
+Number of obs: 12500, groups:  sub_id, 25
+
+Fixed effects:
+            Estimate Std. Error z value Pr(>|z|)    
+(Intercept)  1.61093    0.11461   14.06  < 2e-16 ***
+phaseES      0.41662    0.05526    7.54 4.71e-14 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+        (Intr)
+phaseES -0.317
+
+model-estimated accuracy (95% CI)
+ phase  prob     SE  df asymp.LCL asymp.UCL null z.ratio p.value
+ EE    0.834 0.0159 Inf      0.80     0.862  0.5  14.056 <0.0001
+ ES    0.884 0.0113 Inf      0.86     0.904  0.5  18.380 <0.0001
+
+Confidence level used: 0.95 
+Intervals are back-transformed from the logit scale 
+Tests are performed on the logit scale 
+
+ES vs EE: odds ratio (95% CI)
+ contrast odds.ratio     SE  df asymp.LCL asymp.UCL null z.ratio p.value
+ ES / EE        1.52 0.0838 Inf      1.36      1.69    1   7.540 <0.0001
+
+Confidence level used: 0.95 
+Intervals are back-transformed from the log odds ratio scale 
+Tests are performed on the log odds ratio scale 
+
+model diagnostics
+singular fit: FALSE 

@@ -1,0 +1,86 @@
+DIRECT ES VS EE FINAL-FIXATION BIAS TEST
+=======================================
+
+Coordinate system:
+choice_right = 1 means physical RIGHT choice
+FinalFix_Right = 1 means physical RIGHT final fixation
+EE is reference phase
+
+Mixed logistic model
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) [glmerMod]
+ Family: binomial  ( logit )
+Formula: choice_right ~ phase * FinalFix_Right + VD_RL_z + OV_z + (1 |      sub_id)
+   Data: direct_dat
+Control: glmerControl(optimizer = "bobyqa")
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   6091.8    6142.3   -3038.9    6077.8      9984 
+
+Scaled residuals: 
+     Min       1Q   Median       3Q      Max 
+-12.9607  -0.2777  -0.0407   0.2859  14.8363 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.02557  0.1599  
+Number of obs: 9991, groups:  sub_id, 21
+
+Fixed effects:
+                       Estimate Std. Error z value Pr(>|z|)    
+(Intercept)            -1.31488    0.10185 -12.910   <2e-16 ***
+phaseES                -0.15478    0.11025  -1.404   0.1603    
+FinalFix_Right          2.27581    0.12997  17.511   <2e-16 ***
+VD_RL_z                 2.53064    0.05556  45.551   <2e-16 ***
+OV_z                   -0.06570    0.02731  -2.406   0.0161 *  
+phaseES:FinalFix_Right  0.37618    0.14846   2.534   0.0113 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) phasES FnlF_R VD_RL_ OV_z  
+phaseES     -0.798                            
+FinlFx_Rght -0.706  0.627                     
+VD_RL_z     -0.133  0.017  0.188              
+OV_z        -0.012  0.019  0.012 -0.031       
+phsES:FnF_R  0.595 -0.743 -0.840 -0.025 -0.026
+
+Omnibus model tests
+Analysis of Variance Table
+                     npar  Sum Sq Mean Sq   F value
+phase                   1    0.38    0.38    0.3790
+FinalFix_Right          1  567.38  567.38  567.3782
+VD_RL_z                 1 2077.96 2077.96 2077.9641
+OV_z                    1    5.48    5.48    5.4793
+phase:FinalFix_Right    1    6.42    6.42    6.4205
+
+Phase-specific final-fixation slopes
+ phase FinalFix_Right.trend     SE  df asymp.LCL asymp.UCL
+ EE                    2.28 0.1300 Inf      2.02      2.53
+ ES                    2.65 0.0807 Inf      2.49      2.81
+
+Results are averaged over the levels of: FinalFix_Right 
+Confidence level used: 0.95 
+
+DIRECT ES vs EE difference in final-fixation slope
+ contrast estimate    SE  df z.ratio p.value
+ EE - ES    -0.376 0.148 Inf  -2.534  0.0113
+
+Results are averaged over the levels of: FinalFix_Right 
+
+Predicted choice probabilities
+phase = EE:
+ FinalFix_Right  prob     SE  df asymp.LCL asymp.UCL
+              0 0.212 0.0170 Inf     0.180     0.247
+              1 0.723 0.0185 Inf     0.686     0.758
+
+phase = ES:
+ FinalFix_Right  prob     SE  df asymp.LCL asymp.UCL
+              0 0.187 0.0103 Inf     0.168     0.208
+              1 0.765 0.0114 Inf     0.742     0.787
+
+Confidence level used: 0.95 
+Intervals are back-transformed from the logit scale 
+
+Random effects
+ Groups Name        Std.Dev.
+ sub_id (Intercept) 0.15989 

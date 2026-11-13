@@ -1,0 +1,1522 @@
+---
+title: "Study2_Main_Gaze_Analyses"
+output: html_document
+---
+
+# Eye-tracking Analysis for Study 2 
+
+#libraries
+
+```{r}
+# Load libraries
+rm(list = ls())
+
+library(lme4)
+library(lmerTest)
+library(tidyverse)
+library(ggplot2)
+library(svglite)
+library(sjPlot)
+#install.packages("performance")
+library(performance)
+library(emmeans)
+#library(ez)
+library(dplyr)
+library(Matrix)
+library(carData)                  
+library(effects)                  
+library("Hmisc")
+library(rstatix)
+library(ggpubr)
+library(broom)
+library(broom.mixed)
+library(jsonlite)
+library(broom.mixed)
+install.packages("marginaleffects")
+library(marginaleffects)
+
+# general colour rules:
+# EE phase = deepskyblue4, ES phase = darkorchid4
+# "within ES phase, E = deepskyblue and S = darkorchid
+
+```
+
+# reading in the file
+
+```{r}
+file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+data <- read.csv(file)
+```
+
+
+# ES Dwelltime Advantge without OV
+
+```{r}
+phase_filter <- "ES"
+excluded_subjects <- c(2, 6, 9, 14, 18, 20, 26)  # excluded in Study 2, either due to eye-tracker problems, or insufficent data and other technical errors
+
+
+#Filter data
+es_dta <- data %>%
+  filter(phase == phase_filter, !sub_id %in% excluded_subjects,
+         !is.na(DwellTimeAdvantage_ES), !is.na(chose_S),
+         chose_S %in% c(0, 1), Dwell_S > -1, Dwell_E > -1)
+
+
+# Within-participant quantile binning
+make_dta_bins <- function(x) {
+  values <- sort(unique(x[is.finite(x)]))
+
+  if (length(values) < 5) return(rep(NA_integer_, length(x)))
+
+  breaks <- as.numeric(quantile(values, probs = seq(0, 1, 0.2)))
+
+  as.integer(cut(x, breaks = breaks, labels = FALSE,
+                 include.lowest = TRUE))
+}
+
+es_dta <- es_dta %>%
+  group_by(sub_id) %>%
+  mutate(DTA_bin_num = make_dta_bins(DwellTimeAdvantage_ES)) %>%
+  ungroup()
+
+# participant has five valid bins
+bin_check <- es_dta %>%
+  group_by(sub_id) %>%
+  summarise(n_bins = n_distinct(DTA_bin_num, na.rm = TRUE), .groups = "drop")
+
+bin_audit <- es_dta %>%
+  group_by(sub_id) %>%
+  summarise(n_missing = sum(is.na(DTA_bin_num)),
+            n_bins = n_distinct(DTA_bin_num, na.rm = TRUE),
+            .groups = "drop")
+
+print(filter(bin_audit, n_missing > 0 | n_bins != 5))
+
+# keep only trials with valid DTA bins
+es_dta <- es_dta %>%
+  filter(!is.na(DTA_bin_num), !is.na(chose_S)) %>%
+  mutate(DTA_bin = factor(DTA_bin_num, levels = 1:5),
+         sub_id = factor(sub_id)) %>%
+  droplevels()
+
+# 3. Participant-level means and 95% confidence intervals
+
+participant_bins <- es_dta %>%
+  group_by(sub_id, DTA_bin) %>%
+  summarise(p_choose_S = mean(chose_S), n_trials = n(), .groups = "drop")
+
+summary_df <- participant_bins %>%
+  group_by(DTA_bin) %>%
+  rstatix::get_summary_stats(p_choose_S, type = "mean_ci", digits = 6) %>%
+  transmute(
+    DTA_bin, n_participants = n, p_choose_S = mean,
+    ci_low = mean - ci, ci_high = mean + ci
+  ) %>%
+  mutate(DTA_bin = factor(DTA_bin, levels = 1:5,
+                          labels = c("E>>S", "E>S", "E~S", "S>E", "S>>E")))
+
+
+
+#plot:
+
+p <- ggplot(summary_df, aes(x = DTA_bin, y = p_choose_S, group = 1)) +
+  geom_point(size = 4, color = "darkorchid4") +
+  geom_line(linewidth = 1.2, color = "darkorchid4") +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high),
+                width = 0.2, linewidth = 0.8, color = "darkorchid4") +
+  geom_hline(yintercept = 0.5, linetype = "dotted",
+             color = "gray50", linewidth = 1) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line = element_line(color = "black", linewidth = 0.8),
+    legend.position = "none",
+    axis.text = element_text(size = 18, color = "black"),
+    axis.title = element_text(size = 18, color = "black"),
+    plot.title = element_text(size = 18, hjust = 0.5, color = "black"),
+    plot.background = element_rect(fill = "white", color = "white")
+  ) +
+  labs(title = "Dwell-Time Advantage on Choice - ES Phase",
+       x = "Dwell-Time Advantage (S > E)",
+       y = "P(Choose Symbolic)")
+
+print(p)
+
+fig_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/gaze"
+dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+
+fig_base <- file.path(fig_dir, "ES_DTA_no_OV")
+
+ggsave(paste0(fig_base, ".png"), plot = p, width = 4.5, height = 4, dpi = 300, bg = "white")
+ggsave(paste0(fig_base, ".pdf"), plot = p, width = 4.5, height = 4, bg = "white")
+
+
+
+# Trial-level binomial mixed-effects model
+
+glmm_control <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 200000))
+
+glmm_dta <- glmer(chose_S ~ DTA_bin + (1 | sub_id),
+                  family = binomial, data = es_dta, control = glmm_control)
+
+glmm_null <- glmer(chose_S ~ 1 + (1 | sub_id),
+                   family = binomial, data = es_dta, control = glmm_control)
+
+omnibus_result <- anova(glmm_null, glmm_dta, test = "Chisq")
+
+print(summary(glmm_dta))
+print(omnibus_result)
+
+
+emm_dta <- emmeans(glmm_dta, ~ DTA_bin)
+
+emm_predictions <- as.data.frame(
+  summary(emm_dta, type = "response", infer = c(TRUE, FALSE))
+)
+
+print(emm_predictions)
+
+
+# Bonferroni post-hoc comparisons
+
+posthoc_result1 <- pairs(emm_dta, adjust = "bonferroni")
+posthoc_table <- as.data.frame(summary(posthoc_result1, type = "response"))
+
+print(posthoc_table)
+
+
+
+# Linear and quadratic trend analyses
+
+
+glmm_linear <- glmer(chose_S ~ DTA_bin_num + (1 | sub_id),
+                     family = binomial, data = es_dta, control = glmm_control)
+
+glmm_quadratic <- glmer(chose_S ~ DTA_bin_num + I(DTA_bin_num^2) + (1 | sub_id),
+                        family = binomial, data = es_dta, control = glmm_control)
+
+quadratic_comparison <- anova(glmm_linear, glmm_quadratic, test = "Chisq")
+
+print(summary(glmm_quadratic))
+print(quadratic_comparison)
+
+results_file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/gaze/ES_DwelltimeAdvantage_Results_no_OV.txt"
+dir.create(dirname(results_file), recursive = TRUE, showWarnings = FALSE)
+
+capture.output({
+
+  cat("ES dwell-time advantage analysis\n")
+  cat("========================================\n\n")
+  cat("participants:", n_distinct(es_dta$sub_id), "\n")
+  cat("trials:", nrow(es_dta), "\n\n")
+
+  cat("\nobserved participant means and 95% ci\n")
+  print(summary_df)
+
+  cat("\nbinomial mixed-effects model\n")
+  print(summary(glmm_dta))
+
+  cat("\nomnibus test\n")
+  print(omnibus_result)
+
+  cat("\nmodel-based probabilities and 95% ci\n")
+  print(emm_predictions)
+
+  cat("\nbonferroni-adjusted post-hoc comparisons\n")
+  print(posthoc_table)
+
+  cat("\nquadratic trend model\n")
+  print(summary(glmm_quadratic))
+
+  cat("\nlinear vs quadratic model comparison\n")
+  print(quadratic_comparison)
+
+}, file = results_file)
+```
+
+# EE DwellTimeAdvantage without OV
+
+```{r}
+# EE dwell-time advantage without ov
+
+phase_filter <- "EE"
+excluded_subjects <- c(2, 6, 9, 14, 18, 20, 26)  # excluded in Study 2, either due to eye-tracker problems, or insufficent data and other technical errors
+
+# filter data
+
+ee_dta <- read.csv(file, stringsAsFactors = FALSE) %>%
+  filter(phase == phase_filter, !sub_id %in% excluded_subjects,
+         !is.na(sub_id), is.finite(DwellTimeAdvantage),
+         !is.na(chose_right), chose_right %in% c(0, 1),
+         DwellRight > -1, DwellLeft > -1)
+
+# within-participant quantile binning
+
+make_dta_bins <- function(x) {
+  values <- sort(unique(x[is.finite(x)]))
+  if (length(values) < 5) return(rep(NA_integer_, length(x)))
+
+  breaks <- as.numeric(quantile(values, probs = seq(0, 1, 0.2)))
+  as.integer(cut(x, breaks = breaks, labels = FALSE, include.lowest = TRUE))
+}
+
+ee_dta <- ee_dta %>%
+  group_by(sub_id) %>%
+  mutate(DTA_bin_num = make_dta_bins(DwellTimeAdvantage)) %>%
+  ungroup()
+
+# cheking that all participants have five valid bins
+bin_check <- ee_dta %>%
+  group_by(sub_id) %>%
+  summarise(n_bins = n_distinct(DTA_bin_num, na.rm = TRUE),
+            n_missing = sum(is.na(DTA_bin_num)), .groups = "drop")
+
+print(filter(bin_check, n_bins != 5 | n_missing > 0))
+
+if (any(bin_check$n_bins != 5 | bin_check$n_missing > 0)) {
+  stop("some participants do not have five valid dta bins.")
+}
+
+ee_dta <- ee_dta %>%
+  filter(!is.na(DTA_bin_num)) %>%
+  mutate(DTA_bin = factor(DTA_bin_num, levels = 1:5),
+         sub_id = factor(sub_id))
+
+
+participant_bins <- ee_dta %>%
+  group_by(sub_id, DTA_bin) %>%
+  summarise(p_choose_right = mean(chose_right), n_trials = n(), .groups = "drop")
+
+summary_df <- participant_bins %>%
+  group_by(DTA_bin) %>%
+  rstatix::get_summary_stats(p_choose_right, type = "mean_ci", digits = 6) %>%
+  transmute(
+    DTA_bin, n_participants = n, p_choose_right = mean,
+    ci_low = mean - ci, ci_high = mean + ci
+  ) %>%
+  mutate(DTA_bin = factor(DTA_bin, levels = 1:5,
+                          labels = c("L>>R", "L>R", "L ~ R", "R>L", "R>>L"))) %>%
+  filter(!is.na(DTA_bin), !is.na(p_choose_right),
+         !is.na(ci_low), !is.na(ci_high))
+
+
+
+# plot
+
+p <- ggplot(summary_df, aes(x = DTA_bin, y = p_choose_right, group = 1)) +
+  geom_point(size = 4, color = "deepskyblue4") +
+  geom_line(linewidth = 1.2, color = "deepskyblue4") +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high),
+                width = 0.2, linewidth = 0.8, color = "deepskyblue4") +
+  geom_hline(yintercept = 0.5, linetype = "dotted",
+             color = "gray50", linewidth = 1) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line = element_line(color = "black", linewidth = 0.8),
+    legend.position = "none",
+    axis.text = element_text(size = 18, color = "black"),
+    axis.title = element_text(size = 18, color = "black"),
+    plot.title = element_text(size = 18, hjust = 0.5, color = "black"),
+    plot.background = element_rect(fill = "white", color = "white")
+  ) +
+  labs(title = "Dwell-Time Advantage on Choice - EE Phase",
+       x = "Dwell-Time Advantage (R > L)",
+       y = "P(Choose Right)")
+
+print(p)
+
+
+fig_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/gaze"
+
+fig_base <- file.path(fig_dir, "EE_DTA_no_OV")
+
+ggsave(paste0(fig_base, ".png"), plot = p, width = 4.5, height = 4, dpi = 300, bg = "white")
+ggsave(paste0(fig_base, ".pdf"), plot = p, width = 4.5, height = 4, bg = "white")
+
+
+# trial-level binomial mixed-effects model
+
+glmm_control <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 200000))
+
+glmm_ee <- glmer(chose_right ~ DTA_bin + (1 | sub_id),
+                 family = binomial, data = ee_dta, control = glmm_control)
+
+glmm_null <- glmer(chose_right ~ 1 + (1 | sub_id),
+                   family = binomial, data = ee_dta, control = glmm_control)
+
+# verify both models use identical sample sizes
+stopifnot(nobs(glmm_ee) == nobs(glmm_null),
+          nobs(glmm_ee) == nrow(ee_dta))
+
+omnibus_result <- anova(glmm_null, glmm_ee, test = "Chisq")
+
+print(summary(glmm_ee))
+print(omnibus_result)
+
+
+
+# estimated marginal means + 95% ci
+
+emm_ee <- emmeans(glmm_ee, ~ DTA_bin)
+
+emm_predictions <- as.data.frame(
+  summary(emm_ee, type = "response", infer = c(TRUE, FALSE))
+)
+
+print(emm_predictions)
+
+
+# bonferroni post-hoc comparisons
+
+
+posthoc_result <- pairs(emm_ee, adjust = "bonferroni")
+posthoc_table <- as.data.frame(summary(posthoc_result, type = "response"))
+
+print(posthoc_table)
+
+
+# linear and quadratic trend analyses
+
+
+glmm_linear <- glmer(chose_right ~ DTA_bin_num + (1 | sub_id),
+                     family = binomial, data = ee_dta, control = glmm_control)
+
+glmm_quadratic <- glmer(chose_right ~ DTA_bin_num + I(DTA_bin_num^2) + (1 | sub_id),
+                        family = binomial, data = ee_dta, control = glmm_control)
+
+quadratic_comparison <- anova(glmm_linear, glmm_quadratic, test = "Chisq")
+
+print(summary(glmm_quadratic))
+print(quadratic_comparison)
+
+
+results_file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/gaze/EE_DwelltimeAdvantage_Results_no_OV.txt"
+dir.create(dirname(results_file), recursive = TRUE, showWarnings = FALSE)
+
+capture.output({
+
+  cat("EE dwell-time advantage analysis\n")
+  cat("========================================\n\n")
+  cat("participants:", n_distinct(ee_dta$sub_id), "\n")
+  cat("trials:", nrow(ee_dta), "\n\n")
+
+  cat("\nbinning audit\n")
+  print(bin_check)
+
+  cat("\nobserved participant means and 95% ci\n")
+  print(summary_df)
+
+  cat("\nbinomial mixed-effects model\n")
+  print(summary(glmm_ee))
+
+  cat("\nomnibus test\n")
+  print(omnibus_result)
+
+  cat("\nmodel-based probabilities and 95% ci\n")
+  print(emm_predictions)
+
+  cat("\nbonferroni-adjusted post-hoc comparisons\n")
+  print(posthoc_table)
+
+  cat("\nquadratic trend model\n")
+  print(summary(glmm_quadratic))
+
+  cat("\nlinear vs quadratic model comparison\n")
+  print(quadratic_comparison)
+
+}, file = results_file)
+```
+
+# ES vs EE comparison of final-fixation bias
+
+```{r}
+
+direct_file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+direct_output <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/gaze/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/gaze/"
+
+excluded_direct <- c(2, 6, 9, 14, 18, 20, 26)  # excluded in Study 2, either due to eye-tracker problems, or insufficent data and other technical errors
+
+
+# prepare data
+
+direct_dat <- read.csv(direct_file, stringsAsFactors = FALSE) %>%
+  filter(phase %in% c("ES", "EE"), !sub_id %in% excluded_direct) %>%
+  mutate(
+    phase = factor(phase, levels = c("EE", "ES")),
+    final_fix_right = case_when(FinalFixLoc == 1 ~ 0, FinalFixLoc == 2 ~ 1,
+                                TRUE ~ NA_real_),
+    choice_right = chose_right_spatial,
+    p_diff_rl = p2 - p1,
+    p_sum = p1 + p2
+  ) %>%
+  drop_na(sub_id, phase, final_fix_right, choice_right, p_diff_rl, p_sum)
+
+stopifnot(all(direct_dat$choice_right %in% c(0, 1)))
+
+n_before_z <- nrow(direct_dat)
+
+direct_dat <- direct_dat %>%
+  group_by(sub_id) %>%
+  mutate(
+    p_diff_rl_z = as.numeric(scale(p_diff_rl)),
+    p_sum_z = as.numeric(scale(p_sum))
+  ) %>%
+  ungroup() %>%
+  drop_na(p_diff_rl_z, p_sum_z)
+
+# participant-level final-fixation effects
+
+participant_fix <- direct_dat %>%
+  group_by(sub_id, phase, final_fix_right) %>%
+  summarise(p_right = mean(choice_right), .groups = "drop") %>%
+  mutate(fix_side = if_else(final_fix_right == 1, "right", "left")) %>%
+  select(sub_id, phase, fix_side, p_right) %>%
+  pivot_wider(names_from = fix_side, values_from = p_right) %>%
+  filter(!is.na(left), !is.na(right)) %>%
+  mutate(
+    effect_pp = 100 * (right - left),
+    final_fix_choice_probability = 0.5 + (right - left) / 2,
+    final_fixation_advantage = final_fix_choice_probability - 0.5
+  )
+
+# check participant coverage
+print(participant_fix %>% count(phase))
+
+missing_fix <- direct_dat %>%
+  distinct(sub_id, phase) %>%
+  anti_join(participant_fix %>% distinct(sub_id, phase),
+            by = c("sub_id", "phase"))
+
+print(missing_fix)
+
+# logistic mixed-effects models
+
+model_control <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 200000))
+
+m_final_phase <- glmer(
+  choice_right ~ phase * final_fix_right + p_diff_rl_z + p_sum_z + (1 | sub_id),
+  family = binomial, data = direct_dat, control = model_control
+)
+
+m_final_phase_reduced <- update(m_final_phase, . ~ . - phase:final_fix_right)
+
+# direct interaction test
+interaction_test <- anova(m_final_phase_reduced, m_final_phase, test = "Chisq")
+interaction_or <- broom.mixed::tidy(
+  m_final_phase, effects = "fixed", conf.int = TRUE, exponentiate = TRUE
+) %>%
+  filter(term == "phaseES:final_fix_right")
+
+stopifnot(nobs(m_final_phase) == nobs(m_final_phase_reduced))
+
+print(summary(m_final_phase))
+print(interaction_test)
+print(interaction_or)
+
+
+
+# final-fixation effects
+
+final_trends <- emtrends(m_final_phase, ~ phase, var = "final_fix_right")
+final_slope_difference <- contrast(final_trends, list("es - ee" = c(-1, 1)))
+
+# helpers for confidence interval column names
+ci_low <- function(x) x[[intersect(c("lower.CL", "asymp.LCL"), names(x))[1]]]
+ci_high <- function(x) x[[intersect(c("upper.CL", "asymp.UCL"), names(x))[1]]]
+
+slope_df <- as.data.frame(summary(final_trends, infer = c(TRUE, TRUE)))
+slope_df <- slope_df %>%
+  mutate(
+    odds_ratio = exp(final_fix_right.trend),
+    or_low = exp(ci_low(slope_df)),
+    or_high = exp(ci_high(slope_df))
+  )
+
+print(slope_df)
+print(final_slope_difference)
+
+
+
+# model-adjusted fixation-match probabilities
+
+# explicitly predict at final fixation = 0 and 1
+final_emm <- emmeans(m_final_phase, ~ final_fix_right | phase,
+                     at = list(final_fix_right = c(0, 1)))
+
+# convert to probability scale before taking differences
+final_emm_prob <- regrid(final_emm, transform = "response")
+prob_df <- as.data.frame(summary(final_emm_prob, infer = c(TRUE, FALSE)))
+
+# equal-weighted probability of choosing the final-fixated option
+match_component <- contrast(
+  final_emm_prob, method = list(final_fixation_advantage = c(-0.5, 0.5)), by = "phase"
+)
+
+match_df <- as.data.frame(summary(match_component, infer = c(TRUE, TRUE)))
+match_df <- match_df %>%
+  mutate(
+    final_fix_choice_probability = 0.5 + estimate,
+    lower = 0.5 + ci_low(match_df),
+    upper = 0.5 + ci_high(match_df)
+  )
+
+# equivalent fixation effect in percentage points
+bias_df <- match_df %>%
+  transmute(
+    phase, effect_pp = 200 * estimate,
+    lower_pp = 200 * (lower - 0.5),
+    upper_pp = 200 * (upper - 0.5)
+  )
+
+print(prob_df)
+print(match_df)
+print(bias_df)
+
+
+
+# plot: final-fixation effect in percentage points
+
+p_final_bias_bar <- ggplot(bias_df, aes(x = phase, y = effect_pp, fill = phase)) +
+  geom_col(width = 0.6, color = "black") +
+  geom_point(
+    data = participant_fix, aes(x = phase, y = effect_pp),
+    inherit.aes = FALSE, shape = 21, fill = NA, color = "black",
+    size = 3.2, stroke = 0.85,
+    position = position_jitter(width = 0.10, height = 0, seed = 123)
+  ) +
+  geom_errorbar(aes(ymin = lower_pp, ymax = upper_pp),
+                width = 0.12, linewidth = 0.8) +
+  scale_fill_manual(values = c("EE" = "deepskyblue4", "ES" = "darkorchid4")) +
+  coord_cartesian(ylim = c(-1, NA)) +
+  labs(
+    title = "Final-fixation Effect by Phase",
+    x = NULL,
+    y = "Difference in P(choose right) in %"
+  ) +
+  theme_classic(base_size = 18) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(size = 18),
+    axis.text.x = element_text(size = 18, color = "black"),
+    axis.title.y = element_text(size = 18)
+  )
+print(p_final_bias_bar)
+
+
+# plot: final-fixation match probability
+
+plot_df <- match_df %>%
+  mutate(plot_value = final_fix_choice_probability - 0.5,
+         plot_lower = lower - 0.5, plot_upper = upper - 0.5)
+
+# final-fixation match probability
+
+p_final_phase <- ggplot(plot_df, aes(x = phase, y = plot_value, fill = phase)) +
+  geom_col(width = 0.58, color = "black", linewidth = 0.8) +
+  geom_point(
+    data = participant_fix, aes(x = phase, y = final_fixation_advantage),
+    inherit.aes = FALSE, shape = 21, fill = NA, color = "black",
+    size = 3.2, stroke = 0.85,
+    position = position_jitter(width = 0.10, height = 0, seed = 123)
+  ) +
+  geom_errorbar(aes(ymin = plot_lower, ymax = plot_upper),
+                width = 0.10, linewidth = 0.8) +
+  scale_fill_manual(values = c("EE" = "deepskyblue4", "ES" = "darkorchid4")) +
+  scale_y_continuous(labels = function(x) sprintf("%.2f", x + 0.5)) +
+  coord_cartesian(ylim = c(-0.001, NA)) +
+  labs(
+    title = "Final-fixation Bias",
+    x = NULL,
+    y = "P(Choose Final-fixated Option)"
+  ) +
+  theme_classic(base_size = 18) +
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = 18, color = "black"),
+    axis.title.y = element_text(size = 18),
+    plot.title = element_text(size = 18)
+  )
+print(p_final_phase)
+
+
+# save both plots as png and pdf
+
+save_both <- function(plot, filename, width = 4, height = 4) {
+  for (ext in c("png", "pdf")) {
+    ggsave(file.path(direct_output, paste0(filename, ".", ext)),
+           plot = plot, width = width, height = height, dpi = 300, bg = "white")
+  }
+}
+
+save_both(p_final_phase, "ES_EE_FinalFixationBias_Bars")
+save_both(p_final_bias_bar, "ES_EE_FinalFixationEffect_PP")
+
+
+
+results_file <- file.path(results_dir, "ES_EE_FinalFixation_Results.txt")
+fmt_p <- function(x) if (is.na(x)) "na" else if (x < 0.001) "< 0.001" else sprintf("%.3f", x)
+
+capture.output({
+
+  cat("Direct ES vs EE comparison of Final-fixation Bias\n")
+  cat("==================================================\n\n")
+
+  cat("sample\n")
+  cat("participants:", n_distinct(direct_dat$sub_id), "\n")
+  cat("trials:", nrow(direct_dat), "\n\n")
+  print(direct_dat %>% count(phase, final_fix_right))
+
+  cat("\nmodel specification\n")
+  cat("outcome: choice of physically right option (0/1)\n")
+  cat("reference phase: ee\n")
+  cat("predictors: phase, final fixation, interaction, standardised p difference and sum\n")
+  cat("random effects: participant intercept\n\n")
+
+  cat("primary result: es vs ee final-fixation interaction\n")
+  cat(sprintf(
+    "ratio of odds ratios (es/ee) = %.3f, 95%% ci [%.3f, %.3f], wald p = %s\n",
+    interaction_or$estimate, interaction_or$conf.low,
+    interaction_or$conf.high, fmt_p(interaction_or$p.value)
+  ))
+  cat(sprintf(
+    "likelihood-ratio test: chi-square(%d) = %.3f, p = %s\n\n",
+    interaction_test$Df[2], interaction_test$Chisq[2],
+    fmt_p(interaction_test[["Pr(>Chisq)"]][2])
+  ))
+
+  cat("phase-specific final-fixation effects (odds ratios)\n")
+  print(slope_df %>% select(phase, odds_ratio, or_low, or_high, p.value))
+
+  cat("\nes minus ee slope difference (log-odds scale)\n")
+  print(summary(final_slope_difference, infer = c(TRUE, TRUE)))
+
+  cat("\nmodel-adjusted p(choose right) by final fixation and phase\n")
+  print(prob_df)
+
+  cat("\nbalanced p(choose final-fixated option), with 95% ci\n")
+  print(match_df %>% select(phase, final_fix_choice_probability, lower, upper, p.value))
+
+  cat("\nfinal-fixation effect on choice (percentage points)\n")
+  print(bias_df)
+
+  cat("\nmodel diagnostics\n")
+  cat("singular fit:", isSingular(m_final_phase), "\n")
+  warnings_fit <- m_final_phase@optinfo$conv$lme4$messages
+  cat("convergence warnings:",
+      if (length(warnings_fit)) paste(warnings_fit, collapse = "; ") else "none", "\n")
+
+  cat("\nfull model summary\n")
+  print(summary(m_final_phase))
+
+}, file = results_file)
+
+write.csv(bias_df, file.path(results_dir, "ES_EE_FinalFixationEffect_PP.csv"), row.names = FALSE)
+write.csv(match_df, file.path(results_dir, "ES_EE_FinalFixationMatch_Probabilities.csv"), row.names = FALSE)
+```
+
+# ES vs EE comparison of first fixation durations
+
+```{r}
+file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/gaze/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/gaze/"
+
+excluded_subs <- c(2, 6, 9, 14, 18, 20, 26)
+phase_colors <- c("EE" = "deepskyblue4", "ES" = "darkorchid4")
+
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
+
+#load trials
+first <- read.csv(file, stringsAsFactors = FALSE) %>%
+  filter(phase %in% c("EE", "ES"), !sub_id %in% excluded_subs,
+         !is.na(sub_id), is.finite(FirstFixDur), FirstFixDur > 0) %>%
+  mutate(
+    phase = factor(phase, levels = c("EE", "ES")),
+    sub_id = factor(sub_id),
+    duration = FirstFixDur,
+    log_duration = log(duration)
+  )
+
+cat("valid first fixations:", nrow(first), "\n")
+cat("participants:", n_distinct(first$sub_id), "\n")
+
+
+# mean durations
+
+first_part <- first %>%
+  group_by(sub_id, phase) %>%
+  summarise(mean_duration = mean(duration), n_trials = n(), .groups = "drop")
+
+# retain participants with valid observations in both phases
+paired_ids <- first_part %>%
+  count(sub_id) %>% filter(n == 2) %>% pull(sub_id)
+
+if (length(paired_ids) < 3) stop("insufficient paired participants.")
+
+first <- first %>% filter(sub_id %in% paired_ids) %>% droplevels()
+first_part <- first_part %>% filter(sub_id %in% paired_ids)
+
+
+# participant-level means and 95% confidence intervals
+first_summary <- first_part %>%
+  group_by(phase) %>%
+  rstatix::get_summary_stats(mean_duration, type = "full", digits = 6) %>%
+  transmute(
+    phase, n_participants = n, mean_duration = mean,
+    sd_duration = sd, ci_low = mean - ci, ci_high = mean + ci
+  )
+
+print(first_summary)
+
+
+
+# plot
+
+p_first <- ggplot(first_summary, aes(x = phase, y = mean_duration, fill = phase)) +
+  geom_col(width = 0.58, color = "black", linewidth = 0.8) +
+  geom_point(
+    data = first_part, aes(x = phase, y = mean_duration),
+    inherit.aes = FALSE, shape = 21, fill = NA, color = "black",
+    size = 3.2, stroke = 0.85,
+    position = position_jitter(width = 0.08, height = 0, seed = 123)
+  ) +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high),
+                width = 0.12, linewidth = 0.8) +
+  scale_fill_manual(values = phase_colors) +
+  labs(title = "First-fixation Duration", x = NULL,
+       y = "First-fixation Duration (ms)") +
+  theme_classic(base_size = 18) +
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = 18, color = "black"),
+    axis.title.y = element_text(size = 18),
+    plot.title = element_text(size = 18)
+  )
+
+print(p_first)
+
+
+
+fig_base <- file.path(output_dir, "ES_EE_FirstFixationDuration")
+
+ggsave(paste0(fig_base, ".png"), p_first, width = 4, height = 4, dpi = 300, bg = "white")
+ggsave(paste0(fig_base, ".pdf"), p_first, width = 4, height = 4, bg = "white")
+
+
+
+# paired comparison
+
+first_wide <- first_part %>%
+  select(sub_id, phase, mean_duration) %>%
+  pivot_wider(names_from = phase, values_from = mean_duration) %>%
+  drop_na(EE, ES)
+
+paired_test <- t.test(first_wide$ES, first_wide$EE, paired = TRUE)
+paired_d <- effectsize::cohens_d(first_wide$ES, first_wide$EE, paired = TRUE)
+
+print(paired_test)
+print(paired_d)
+
+
+
+# mixed-effects model at trial level
+
+model_control <- lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 200000))
+
+first_mixed <- lmer(
+  log_duration ~ phase + (1 + phase | sub_id),
+  data = first, REML = TRUE, control = model_control
+)
+
+print(summary(first_mixed))
+
+
+# estimated means and ES vs EE contrast
+
+first_emm <- emmeans(
+  first_mixed, ~ phase, lmer.df = "satterthwaite",
+  lmerTest.limit = nrow(first) + 1
+)
+
+emm_df <- as.data.frame(summary(first_emm, infer = c(TRUE, FALSE))) %>%
+  mutate(
+    geometric_mean_ms = exp(emmean),
+    ci_low_ms = exp(lower.CL),
+    ci_high_ms = exp(upper.CL)
+  )
+
+first_contrast <- contrast(first_emm, method = list("es - ee" = c(-1, 1)))
+
+contrast_df <- as.data.frame(summary(first_contrast, infer = c(TRUE, TRUE))) %>%
+  mutate(
+    duration_ratio = exp(estimate),
+    ratio_low = exp(lower.CL),
+    ratio_high = exp(upper.CL),
+    percent_change = 100 * (duration_ratio - 1)
+  )
+
+print(emm_df)
+print(contrast_df)
+
+
+
+results_file <- file.path(results_dir, "ES_EE_FirstFixationDuration_Results.txt")
+
+report <- capture.output({
+
+  cat("First-fixation Duration: ES vs EE\n")
+  cat("========================================\n\n")
+
+  cat("sample\n")
+  cat("participants:", n_distinct(first$sub_id), "\n")
+  cat("valid first-fixation observations:", nrow(first), "\n\n")
+  print(first %>% count(phase))
+
+  cat("\nparticipant-level means and 95% ci\n")
+  print(first_summary)
+
+  cat("\npaired participant-level comparison\n")
+  cat(sprintf(
+    "es - ee = %.2f ms, 95%% ci [%.2f, %.2f], t(%.0f) = %.3f, p = %s\n",
+    mean(first_wide$ES - first_wide$EE),
+    paired_test$conf.int[1], paired_test$conf.int[2],
+    paired_test$parameter, unname(paired_test$statistic),
+    format.pval(paired_test$p.value, eps = 0.001)
+  ))
+
+  cat("\npaired cohen's d\n")
+  print(paired_d)
+
+  cat("\nmodel-estimated geometric means and 95% ci\n")
+  print(emm_df %>% select(phase, geometric_mean_ms, ci_low_ms, ci_high_ms))
+
+  cat("\nmodel contrast: ES vs EE\n")
+  print(contrast_df)
+
+  cat("\npaper-ready mixed-model result\n")
+  cat(sprintf(
+    "es/ee duration ratio = %.3f, 95%% ci [%.3f, %.3f], p = %s, change = %.1f%%\n",
+    contrast_df$duration_ratio[1], contrast_df$ratio_low[1],
+    contrast_df$ratio_high[1],
+    format.pval(contrast_df$p.value[1], eps = 0.001),
+    contrast_df$percent_change[1]
+  ))
+
+  cat("\nmixed-effects model\n")
+  print(summary(first_mixed))
+
+  cat("\nmodel diagnostics\n")
+  cat("singular fit:", isSingular(first_mixed), "\n")
+  conv_messages <- first_mixed@optinfo$conv$lme4$messages
+  cat("convergence warnings:",
+      if (length(conv_messages)) paste(conv_messages, collapse = "; ") else "none", "\n")
+
+}, width = 120)
+
+writeLines(tolower(report), results_file)
+
+write.csv(first_summary, file.path(results_dir, "ES_EE_FirstFixationDuration_Descriptives.csv"),
+          row.names = FALSE)
+write.csv(contrast_df, file.path(results_dir, "ES_EE_FirstFixationDuration_Contrast.csv"),
+          row.names = FALSE)
+
+```
+
+# First-to-final switches: ES fixation history
+
+```{r}
+
+file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/gaze/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/gaze/"
+
+excluded_subs <- c(2, 6, 9, 14, 18, 20, 26)
+source_colors <- c("E" = "deepskyblue", "S" = "darkorchid")
+
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(results_dir, recursive = TRUE, showWarnings = FALSE)
+
+
+# select es trials with different first/final fixations
+
+switch_dat <- read.csv(file, stringsAsFactors = FALSE) %>%
+  filter(
+    phase == "ES", !sub_id %in% excluded_subs, !is.na(sub_id),
+    FirstFixLoc %in% c(1, 2), FinalFixLoc %in% c(1, 2),
+    FirstFixLoc != FinalFixLoc,
+    FirstFixStimulus %in% c("E", "S"),
+    FinalFixStimulus %in% c("E", "S"),
+    FirstFixStimulus != FinalFixStimulus,
+    chose_E %in% c(0, 1), chose_S %in% c(0, 1),
+    is.finite(p_E), is.finite(p_S),
+    is.finite(Nfix), Nfix >= 2
+  ) %>%
+  mutate(
+    previous_source = factor(FirstFixStimulus, levels = c("S", "E")),
+    chose_previous = if_else(FirstFixStimulus == "E", as.integer(chose_E), as.integer(chose_S)),
+    value_diff = if_else(FirstFixStimulus == "E", p_E - p_S, p_S - p_E),
+    overall_value = p_E + p_S,
+    sub_id = factor(sub_id)
+  ) %>%
+  mutate(
+    value_diff_z = as.numeric(scale(value_diff)),
+    overall_value_z = as.numeric(scale(overall_value))
+  ) %>%
+  drop_na(value_diff_z, overall_value_z) %>%
+  group_by(sub_id) %>%
+  mutate(w_subject = 1 / n()) %>%
+  ungroup()
+
+# verify stimulus and physical choice mappings
+stopifnot(
+  nrow(switch_dat) > 0,
+  all(switch_dat$FirstFixStimulus ==
+        if_else(switch_dat$FirstFixLoc == 1, switch_dat$op1, switch_dat$op2)),
+  all(switch_dat$FinalFixStimulus ==
+        if_else(switch_dat$FinalFixLoc == 1, switch_dat$op1, switch_dat$op2)),
+  all(switch_dat$chose_previous ==
+        as.integer(switch_dat$cho == switch_dat$FirstFixLoc))
+)
+
+print(switch_dat %>%
+        group_by(previous_source) %>%
+        summarise(trials = n(), participants = n_distinct(sub_id), .groups = "drop"))
+
+
+
+# binomial mixed-effects model
+
+model_control <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 200000))
+
+m_switch <- glmer(
+  chose_previous ~ previous_source + value_diff_z + overall_value_z + (1 | sub_id),
+  family = binomial, data = switch_dat, control = model_control
+)
+
+print(summary(m_switch))
+
+# e vs s odds ratio and 95% ci
+coef_source <- summary(m_switch)$coefficients["previous_sourceE", ]
+ci_source <- confint(m_switch, parm = "previous_sourceE", method = "Wald")
+
+source_result <- tibble(
+  comparison = "e vs s",
+  odds_ratio = exp(coef_source["Estimate"]),
+  ci_low = exp(ci_source[1]),
+  ci_high = exp(ci_source[2]),
+  z = unname(coef_source["z value"]),
+  p = unname(coef_source["Pr(>|z|)"])
+)
+
+print(source_result)
+
+
+# adjusted probabilities averaged over observed values
+
+adjusted_df <- as.data.frame(
+  marginaleffects::avg_predictions(
+    m_switch,
+    variables = list(previous_source = c("S", "E")),
+    newdata = switch_dat,
+    wts = "w_subject",
+    type = "response",
+    re.form = NA
+  )
+) %>%
+  transmute(
+    previous_source = factor(previous_source, levels = c("E", "S")),
+    probability = estimate, ci_low = conf.low, ci_high = conf.high
+  )
+
+# adjusted E minus S difference
+adjusted_diff <- as.data.frame(
+  marginaleffects::avg_comparisons(
+    m_switch,
+    variables = list(previous_source = c("S", "E")),
+    newdata = switch_dat,
+    wts = "w_subject",
+    type = "response",
+    re.form = NA
+  )
+)
+
+print(adjusted_df)
+print(adjusted_diff)
+
+
+
+# participant-level adjusted predictions for plotting
+
+participant_points <- purrr::map_dfr(c("E", "S"), function(source) {
+
+  new_dat <- switch_dat %>%
+    mutate(previous_source = factor(source, levels = c("S", "E")))
+
+  new_dat$prediction <- predict(
+    m_switch, newdata = new_dat, type = "response", re.form = NA
+  )
+
+  new_dat %>%
+    group_by(sub_id) %>%
+    summarise(probability = mean(prediction), .groups = "drop") %>%
+    mutate(previous_source = factor(source, levels = c("E", "S")))
+})
+
+
+# plot
+
+p_switch <- ggplot(adjusted_df,
+                   aes(x = previous_source, y = probability, fill = previous_source)) +
+  geom_col(width = 0.58, color = "black", linewidth = 0.8) +
+  geom_point(
+    data = participant_points, aes(x = previous_source, y = probability),
+    inherit.aes = FALSE, shape = 21, fill = NA, color = "black",
+    size = 3.2, stroke = 0.85,
+    position = position_jitter(width = 0.08, height = 0, seed = 123)
+  ) +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high),
+                width = 0.12, linewidth = 0.8) +
+  scale_fill_manual(values = source_colors) +
+  scale_x_discrete(labels = c("E" = "E to S", "S" = "S to E")) +
+  scale_y_continuous(labels = scales::label_percent(accuracy = 1)) +
+  labs(
+    title = "Choice after Gaze Shift",
+    x = "First to Final Fixation Switch",
+    y = "P(Choose First-fixated Option)"
+  ) +
+  theme_classic(base_size = 20) +
+  theme(
+    legend.position = "none",
+    axis.text = element_text(color = "black"),
+    axis.text.x = element_text(size = 18),
+    axis.title.y = element_text(size = 18),
+    plot.title = element_text(size = 18)
+  )
+
+print(p_switch)
+
+
+fig_base <- file.path(output_dir, "Study2_ES_SwitchChoice_ValueAdjusted")
+
+ggsave(paste0(fig_base, ".png"), p_switch, width = 4.5, height = 4.5, dpi = 300, bg = "white")
+ggsave(paste0(fig_base, ".pdf"), p_switch, width = 4.5, height = 4.5, bg = "white")
+
+
+# save statistic
+
+results_file <- file.path(results_dir, "Study2_ES_SwitchChoice_ValueAdjusted_Results.txt")
+
+report <- capture.output({
+
+  cat("study 2: fixation-history asymmetry in ES switch trials\n")
+  cat("=======================================================\n\n")
+
+  cat("sample\n")
+  cat("participants:", n_distinct(switch_dat$sub_id), "\n")
+  cat("switch trials:", nrow(switch_dat), "\n")
+  print(switch_dat %>% count(previous_source))
+
+  cat("\nmodel specification\n")
+  cat("outcome: chose previously fixated option (0/1)\n")
+  cat("predictors: previous source, value difference, overall value\n")
+  cat("random effects: participant intercept\n\n")
+
+  cat("primary result: previously fixated E vs S\n")
+  print(source_result)
+
+  cat("\nmodel-adjusted probabilities and 95% ci\n")
+  print(adjusted_df)
+
+  cat("\nadjusted e minus s probability difference\n")
+  print(adjusted_diff)
+
+  cat("\nmodel diagnostics\n")
+  cat("singular fit:", isSingular(m_switch), "\n")
+  conv <- m_switch@optinfo$conv$lme4$messages
+  cat("convergence warnings:",
+      if (length(conv)) paste(conv, collapse = "; ") else "none", "\n")
+
+  cat("\nfull glmm summary\n")
+  print(summary(m_switch))
+
+}, width = 120)
+
+writeLines(tolower(report), results_file)
+```
+# Are there any intresting interactions between this switch effect and value?
+
+```{r}
+
+# interactions between fixation history and option value
+
+m_interaction <- update(m_switch, . ~ . +
+  previous_source:value_diff_z + previous_source:overall_value_z)
+
+# joint and individual interaction tests
+joint_test <- anova(m_switch, m_interaction, test = "Chisq")
+
+interaction_tests <- as.data.frame(drop1(m_interaction, test = "Chisq")) %>%
+  tibble::rownames_to_column("term") %>%
+  filter(grepl(":", term)) %>%
+  mutate(p_holm = p.adjust(`Pr(Chi)`, method = "holm"))
+
+interaction_effects <- broom.mixed::tidy(
+  m_interaction, effects = "fixed", conf.int = TRUE,
+  conf.method = "Wald", exponentiate = TRUE
+) %>%
+  filter(grepl("previous_sourceE:", term))
+
+# source-specific value slopes
+diff_slopes <- confint(emmeans::emtrends(
+  m_interaction, ~ previous_source, var = "value_diff_z"
+))
+
+overall_slopes <- confint(emmeans::emtrends(
+  m_interaction, ~ previous_source, var = "overall_value_z"
+))
+
+print(joint_test)
+print(interaction_tests)
+print(interaction_effects)
+print(diff_slopes)
+print(overall_slopes)
+
+# save statistical results
+capture.output({
+  cat("study 2: fixation-history interactions with option value\n\n")
+  cat("participants:", n_distinct(switch_dat$sub_id), "\n")
+  cat("trials:", nrow(switch_dat), "\n\n")
+
+  cat("joint likelihood-ratio test\n")
+  print(joint_test)
+
+  cat("\nindividual interaction tests (holm corrected)\n")
+  print(interaction_tests)
+
+  cat("\ninteraction odds ratios and 95% ci\n")
+  print(interaction_effects)
+
+  cat("\nvalue-difference slopes by source (95% ci)\n")
+  print(diff_slopes)
+
+  cat("\noverall-value slopes by source (95% ci)\n")
+  print(overall_slopes)
+
+  cat("\nmodel diagnostics\n")
+  cat("singular fit:", lme4::isSingular(m_interaction), "\n")
+  print(summary(m_interaction))
+
+}, file = file.path(results_dir, "Study2_ES_ValueInteractions_Results.txt"))
+
+write.csv(
+  interaction_tests,
+  file.path(results_dir, "Study2_ES_ValueInteractionTests.csv"),
+  row.names = FALSE
+)
+
+write.csv(
+  interaction_effects,
+  file.path(results_dir, "Study2_ES_ValueInteractionEffects.csv"),
+  row.names = FALSE
+)
+
+
+# fitted probabilities: previous source x overall value
+
+# use the same scaling as the fitted model
+overall_mean <- mean(switch_dat$overall_value)
+overall_sd <- sd(switch_dat$overall_value)
+diff_mean <- mean(switch_dat$value_diff)
+diff_sd <- sd(switch_dat$value_diff)
+
+# hold the initial and final options at equal economic value
+reference_diff_z <- (0 - diff_mean) / diff_sd
+
+value_limits <- switch_dat %>%
+  group_by(previous_source) %>%
+  summarise(
+    lower = min(overall_value),
+    upper = max(overall_value),
+    .groups = "drop"
+  )
+
+lower_value <- max(value_limits$lower)
+upper_value <- min(value_limits$upper)
+
+stopifnot(
+  is.finite(reference_diff_z),
+  is.finite(lower_value),
+  is.finite(upper_value),
+  lower_value < upper_value
+)
+
+# construct the prediction grid
+overall_grid <- seq(lower_value, upper_value, length.out = 100)
+
+prediction_grid <- tidyr::expand_grid(
+  previous_source = factor(c("E", "S"), levels = c("S", "E")),
+  overall_value = overall_grid
+) %>%
+  mutate(
+    value_diff_z = reference_diff_z,
+    overall_value_z = (overall_value - overall_mean) / overall_sd,
+    sub_id = factor(
+      as.character(switch_dat$sub_id[1]),
+      levels = levels(switch_dat$sub_id)
+    )
+  )
+
+# population-level fitted probabilities and confidence intervals
+fitted_curves <- marginaleffects::predictions(
+  m_interaction,
+  newdata = prediction_grid,
+  type = "response",
+  re.form = NA
+) %>%
+  as_tibble() %>%
+  mutate(previous_source = factor(previous_source, levels = c("E", "S")))
+
+print(fitted_curves)
+
+# plot fitted source-specific value relationships
+p_value_interaction <- ggplot(
+  fitted_curves,
+  aes(
+    x = overall_value,
+    y = estimate,
+    color = previous_source,
+    fill = previous_source
+  )
+  ) +
+  geom_ribbon(
+    aes(ymin = conf.low, ymax = conf.high),
+    alpha = 0.16, color = NA
+  ) +
+  geom_line(linewidth = 1.3) +
+  geom_hline(yintercept = 0.5, linetype = "dotted",
+             color = "grey65", linewidth = 0.5) +
+  scale_color_manual(
+    values = source_colors,
+    breaks = c("E", "S"),
+    labels = c("First-fixated E, Last S", "First-fixated S, Last E")
+  ) +
+  scale_fill_manual(
+    values = source_colors,
+    breaks = c("E", "S"),
+    labels = c("First-fixated E, Last S", "First-fixated S, Last E")
+  ) +
+  scale_x_continuous(
+  breaks = scales::breaks_pretty(n = 5),
+  labels = scales::label_number(accuracy = 0.1)
+  ) +
+  scale_y_continuous(
+    labels = scales::label_percent(accuracy = 1),
+    breaks = seq(0, 0.6, 0.2)
+  ) +
+  coord_cartesian(ylim = c(0, 0.6)) +
+  labs(
+    x = "Overall Value",
+    y = "P(Choose First-fixated Option)",
+    color = NULL,
+    fill = NULL
+  ) +
+  theme_classic(base_size = 18) +
+  theme(
+    legend.position = "top",
+    legend.text = element_text(size = 12),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(size = 18),
+    panel.grid = element_blank()
+  )
+
+print(p_value_interaction)
+
+# save plot
+fig_base <- file.path(
+  output_dir,
+  "study2_es_switch_overall_value_interaction"
+)
+
+ggsave(
+  paste0(fig_base, ".png"), p_value_interaction,
+  width = 5, height = 4.5, dpi = 300, bg = "white"
+)
+
+ggsave(
+  paste0(fig_base, ".pdf"), p_value_interaction,
+  width = 5, height = 4.5, bg = "white"
+)
+
+# save the values underlying the plot
+write.csv(
+  fitted_curves,
+  file.path(results_dir, "study2_es_switch_fitted_probabilities.csv"),
+  row.names = FALSE
+)
+
+```
+
+
+
+# ES vs EE - Number of fixations
+
+```{r}
+
+file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/gaze/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/gaze/"
+
+excluded_subs <- c(2, 6, 9, 14, 18, 20, 26)
+phase_colors <- c("EE" = "deepskyblue4", "ES" = "darkorchid4")
+
+
+# load and filter fixation counts
+
+fix_trial <- read.csv(file, stringsAsFactors = FALSE) %>%
+  filter(phase %in% c("EE", "ES"), !sub_id %in% excluded_subs,
+         !is.na(sub_id), is.finite(rtime), rtime >= 0.250,
+         is.finite(Nfix), Nfix > 0) %>%
+  mutate(phase = factor(phase, levels = c("EE", "ES")),
+         n_fix = as.integer(Nfix))
+
+
+# mean fixation counts
+
+fix_subj <- fix_trial %>%
+  group_by(sub_id, phase) %>%
+  summarise(mean_n_fix = mean(n_fix), n_trials = n(), .groups = "drop")
+
+# retain participants with both phases
+paired_ids <- fix_subj %>%
+  count(sub_id) %>% filter(n == 2) %>% pull(sub_id)
+
+fix_trial <- fix_trial %>% filter(sub_id %in% paired_ids)
+fix_subj <- fix_subj %>% filter(sub_id %in% paired_ids)
+
+
+fix_summary <- fix_subj %>%
+  group_by(phase) %>%
+  summarise(
+    n_participants = n(),
+    group_mean = mean(mean_n_fix),
+    sd_n_fix = sd(mean_n_fix),
+    ci_low = t.test(mean_n_fix)$conf.int[1],
+    ci_high = t.test(mean_n_fix)$conf.int[2],
+    .groups = "drop"
+  ) %>%
+  rename(mean_n_fix = group_mean)
+
+print(fix_summary)
+
+# paired comparison
+
+fix_wide <- fix_subj %>%
+  select(sub_id, phase, mean_n_fix) %>%
+  pivot_wider(names_from = phase, values_from = mean_n_fix) %>%
+  drop_na(EE, ES) %>%
+  mutate(es_minus_ee = ES - EE)
+
+paired_test <- t.test(fix_wide$ES, fix_wide$EE, paired = TRUE)
+wilcox_test <- wilcox.test(fix_wide$ES, fix_wide$EE, paired = TRUE, exact = FALSE)
+paired_d <- effectsize::cohens_d(fix_wide$ES, fix_wide$EE, paired = TRUE)
+
+fix_stats <- tibble(
+  n = nrow(fix_wide), mean_ee = mean(fix_wide$EE),
+  mean_es = mean(fix_wide$ES), difference = mean(fix_wide$es_minus_ee),
+  ci_low = paired_test$conf.int[1], ci_high = paired_test$conf.int[2],
+  t = unname(paired_test$statistic), df = unname(paired_test$parameter),
+  p = paired_test$p.value
+)
+
+print(fix_stats)
+print(paired_d)
+
+
+
+# plot
+
+p_nfix <- ggplot(fix_summary, aes(x = phase, y = mean_n_fix, fill = phase)) +
+  geom_col(width = 0.58, color = "black", linewidth = 0.8) +
+  geom_point(
+    data = fix_subj, aes(x = phase, y = mean_n_fix),
+    inherit.aes = FALSE, shape = 21, fill = NA, color = "black",
+    size = 3.2, stroke = 0.85,
+    position = position_jitter(width = 0.08, height = 0, seed = 123)
+  ) +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high),
+                width = 0.12, linewidth = 0.8) +
+  scale_fill_manual(values = phase_colors) +
+  scale_x_discrete(labels = c("EE" = "EE", "ES" = "ES")) +
+  labs(title = "Number of Fixations", x = NULL,
+       y = "Mean Fixations per Trial") +
+  theme_classic(base_size = 18) +
+  theme(
+    legend.position = "none",
+    axis.text = element_text(size = 18, color = "black"),
+    axis.title.y = element_text(size = 18),
+    plot.title = element_text(size = 18)
+  )
+
+print(p_nfix)
+
+
+
+fig_base <- file.path(output_dir, "ES_EE_NumberFixations")
+
+ggsave(paste0(fig_base, ".png"), p_nfix, width = 4, height = 4, dpi = 300, bg = "white")
+ggsave(paste0(fig_base, ".pdf"), p_nfix, width = 4, height = 4, bg = "white")
+
+
+
+# save stats
+
+results_file <- file.path(results_dir, "ES_EE_NumberFixations_Results.txt")
+
+report <- capture.output({
+
+  cat("number of fixations: ES vs EE\n")
+  cat("========================================\n\n")
+
+  cat("sample\n")
+  cat("participants:", n_distinct(fix_trial$sub_id), "\n")
+  cat("trials:", nrow(fix_trial), "\n\n")
+  print(fix_trial %>% count(phase))
+
+  cat("\nparticipant-level means and 95% ci\n")
+  print(fix_summary)
+
+  cat("\nprimary comparison: paired participant-level t-test\n")
+  cat(sprintf(
+    "es - ee = %.3f fixations, 95%% ci [%.3f, %.3f], t(%.0f) = %.3f, p = %s\n",
+    fix_stats$difference, fix_stats$ci_low, fix_stats$ci_high,
+    fix_stats$df, fix_stats$t,
+    format.pval(fix_stats$p, eps = 0.001)
+  ))
+
+  cat("\npaired cohen's d\n")
+  print(paired_d)
+
+  cat("\nwilcoxon signed-rank sensitivity test\n")
+  print(wilcox_test)
+
+  cat("\nparticipant-level paired differences\n")
+  print(fix_wide)
+
+}, width = 120)
+
+writeLines(tolower(report), results_file)
+
+write.csv(fix_summary, file.path(results_dir, "ES_EE_NumberFixations_Descriptives.csv"),
+          row.names = FALSE)
+write.csv(fix_stats, file.path(results_dir, "ES_EE_NumberFixations_PairedTest.csv"),
+          row.names = FALSE)
+
+```
+
+

@@ -1,0 +1,43 @@
+Study1 — ES / EE / SP slope comparison
+==================================================================================
+
+WHAT THE SLOPE MEANS
+For each modality, slope summarizes how strongly the inferred/explicit subjective E-option values track objective E-option p(win).
+Slope ≈ 1: close to unbiased value sensitivity.
+Slope ≈ 0: strong compression / little tracking of objective E value.
+
+PRIMARY CURRENT ANALYSIS
+ES = all 360 ES trials; EE = all 140 EE trials; SP = experiential-symbol ratings only.
+
+ES: N=21, M=0.8513, SD=0.3348, SEM=0.0731, 95% CI=[0.6989, 1.0037], test vs 1: t(20)=-2.035, p = 0.055, dz=-0.444
+EE: N=21, M=0.9191, SD=0.1662, SEM=0.0363, 95% CI=[0.8434, 0.9947], test vs 1: t(20)=-2.231, p = 0.037, dz=-0.487
+SP: N=21, M=0.8802, SD=0.2449, SEM=0.0534, 95% CI=[0.7687, 0.9916], test vs 1: t(20)=-2.242, p = 0.036, dz=-0.489
+
+Repeated-measures ANOVA (primary slopes)
+Uncorrected: F(2, 40)=0.588, p = 0.560, partial eta^2=0.029
+Greenhouse-Geisser: epsilon=0.655; F(1.31, 26.22)=0.588, p = 0.494
+Friedman robustness check: chi2(2)=4.095, p = 0.129
+
+Planned paired comparisons (primary slopes; Holm-adjusted)
+ES - EE: mean diff=-0.0678, 95% CI=[-0.2394, +0.1038], t(20)=-0.824, raw p = 0.420, Holm p = 1.000, dz=-0.180; Wilcoxon Holm p = 0.911
+ES - SP: mean diff=-0.0289, 95% CI=[-0.1395, +0.0818], t(20)=-0.545, raw p = 0.592, Holm p = 1.000, dz=-0.119; Wilcoxon Holm p = 0.911
+EE - SP: mean diff=+0.0389, 95% CI=[-0.0594, +0.1372], t(20)=0.825, raw p = 0.419, Holm p = 1.000, dz=0.180; Wilcoxon Holm p = 0.911
+
+----------------------------------------------------------------------------------
+MATLAB-STYLE BENCHMARK
+ES = first E x S cell occurrence; EE = first ordered E x E pair occurrence; SP = E and S slider ratings pooled after excluding p=.5.
+This benchmark is saved ONLY to audit/reproduce the older modified MATLAB workflow. It is not the preferred scientific comparison.
+
+ES: N=21, M=0.8466, SD=0.3338, SEM=0.0728, 95% CI=[0.6947, 0.9986]
+EE: N=21, M=0.8929, SD=0.2205, SEM=0.0481, 95% CI=[0.7925, 0.9933]
+SP: N=21, M=0.9194, SD=0.1272, SEM=0.0278, 95% CI=[0.8615, 0.9773]
+
+Repeated-measures ANOVA (MATLAB benchmark slopes)
+Uncorrected: F(2, 40)=0.711, p = 0.497, partial eta^2=0.034
+Greenhouse-Geisser: epsilon=0.628; F(1.26, 25.11)=0.711, p = 0.438
+Friedman robustness check: chi2(2)=2.381, p = 0.304
+
+Paired comparisons (MATLAB-style benchmark; Holm-adjusted)
+ES - EE: mean diff=-0.0463, t(20)=-0.582, Holm p = 0.919, dz=-0.127
+ES - SP: mean diff=-0.0728, t(20)=-1.167, Holm p = 0.771, dz=-0.255
+EE - SP: mean diff=-0.0265, t(20)=-0.754, Holm p = 0.919, dz=-0.165

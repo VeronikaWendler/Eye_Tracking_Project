@@ -1,0 +1,101 @@
+Direct ES vs EE comparison of Final-fixation Bias
+==================================================
+
+sample
+participants: 20 
+trials: 9015 
+
+# A tibble: 4 × 3
+  phase final_fix_right     n
+  <fct>           <dbl> <int>
+1 EE                  0  1171
+2 EE                  1  1237
+3 ES                  0  3294
+4 ES                  1  3313
+
+model specification
+outcome: choice of physically right option (0/1)
+reference phase: ee
+predictors: phase, final fixation, interaction, standardised p difference and sum
+random effects: participant intercept
+
+primary result: es vs ee final-fixation interaction
+ratio of odds ratios (es/ee) = 1.430, 95% ci [1.116, 1.834], wald p = 0.005
+likelihood-ratio test: chi-square(1) = 7.941, p = 0.005
+
+phase-specific final-fixation effects (odds ratios)
+  phase odds_ratio   or_low  or_high       p.value
+1    EE   4.336618 3.497500 5.377058  8.895642e-41
+2    ES   6.203329 5.442326 7.070744 1.804666e-164
+
+es minus ee slope difference (log-odds scale)
+ contrast estimate    SE  df asymp.LCL asymp.UCL z.ratio p.value
+ es - ee     0.358 0.127 Inf      0.11     0.606   2.825  0.0047
+
+Results are averaged over the levels of: final_fix_right 
+Confidence level used: 0.95 
+
+model-adjusted p(choose right) by final fixation and phase
+phase = EE:
+ final_fix_right      prob         SE  df asymp.LCL asymp.UCL
+               0 0.2936652 0.01808118 Inf 0.2582267 0.3291036
+               1 0.6432379 0.01921838 Inf 0.6055706 0.6809053
+
+phase = ES:
+ final_fix_right      prob         SE  df asymp.LCL asymp.UCL
+               0 0.2772016 0.01192543 Inf 0.2538282 0.3005750
+               1 0.7040587 0.01233513 Inf 0.6798823 0.7282351
+
+Confidence level used: 0.95 
+
+balanced p(choose final-fixated option), with 95% ci
+  phase final_fix_choice_probability     lower     upper       p.value
+1    EE                    0.6747864 0.6513124 0.6982604  3.075996e-48
+2    ES                    0.7134286 0.7000519 0.7268052 1.125349e-214
+
+final-fixation effect on choice (percentage points)
+  phase effect_pp lower_pp upper_pp
+1    EE  34.95728 30.26247 39.65208
+2    ES  42.68571 40.01039 45.36104
+
+model diagnostics
+singular fit: FALSE 
+convergence warnings: none 
+
+full model summary
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: choice_right ~ phase * final_fix_right + p_diff_rl_z + p_sum_z +      (1 | sub_id)
+   Data: direct_dat
+Control: model_control
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   7994.1    8043.8   -3990.0    7980.1      9008 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-7.7792 -0.5034 -0.1248  0.5076  8.4864 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.02652  0.1628  
+Number of obs: 9015, groups:  sub_id, 20
+
+Fixed effects:
+                        Estimate Std. Error z value Pr(>|z|)    
+(Intercept)             -0.87765    0.08717 -10.068  < 2e-16 ***
+phaseES                 -0.08074    0.09112  -0.886  0.37559    
+final_fix_right          1.46709    0.10972  13.371  < 2e-16 ***
+p_diff_rl_z              1.63288    0.03743  43.625  < 2e-16 ***
+p_sum_z                 -0.02099    0.02496  -0.841  0.40040    
+phaseES:final_fix_right  0.35799    0.12671   2.825  0.00472 ** 
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) phasES fnl_f_ p_df__ p_sm_z
+phaseES     -0.778                            
+fnl_fx_rght -0.660  0.621                     
+p_diff_rl_z -0.107  0.036  0.131              
+p_sum_z      0.014 -0.015 -0.024  0.004       
+phsES:fnl__  0.559 -0.720 -0.850 -0.029  0.022

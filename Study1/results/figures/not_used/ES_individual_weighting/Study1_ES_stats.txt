@@ -1,0 +1,47 @@
+Study1 — Garcia-style ES weighting statistics
+==============================================================================
+
+EXCLUSIONS / SAMPLE
+Requested exclusions: [1, 4, 5, 6, 14, 99]
+Found and removed from input: [1, 4, 5, 14, 99]
+Already absent upstream: [6]
+Included participant IDs: [2, 3, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
+Final N participants: 21
+Final ES trials: 7560
+
+PRIMARY SCORE: ES_slope_all_trials
+Mean = 0.8513
+SD = 0.3348
+SEM = 0.0731
+95% CI = [0.6989, 1.0037]
+Median = 0.8281
+Min / Max = 0.2868 / 1.6557
+Participants with slope < 1 / = 1 / > 1: 17 / 0 / 4
+One-sample test vs equal-sensitivity reference 1: t(20) = -2.035, p = 0.055
+Cohen's dz vs 1 = -0.444
+Mean ES_neglect_index_all_trials (1 - slope) = 0.1487
+
+STRICT GARCIA FIRST-REPEAT BENCHMARK
+Mean slope = 0.8466
+SD = 0.3338
+All-trials vs first-repeat paired test: t(20) = 0.151, p = 0.882
+Correlation all-trials vs first-repeat: r = 0.910, p < .001
+
+FIT DIAGNOSTICS
+Optimizer failures = 0
+Mean midpoint-regression R^2 = 0.7427
+Median midpoint-regression R^2 = 0.7920
+Mean midpoint RMSE = 0.1341
+Participants with >=1 midpoint at 0/1 boundary = 7
+Boundary participants ID(number of boundary midpoints): 10(6), 11(1), 12(1), 13(7), 15(3), 18(1), 25(3)
+
+GROUP MEAN INDIFFERENCE POINTS
+p_E    mean midpoint    SEM    mean midpoint - p_E
+0.1    0.2305          0.0316    +0.1305
+0.2    0.2371          0.0370    +0.0371
+0.3    0.3062          0.0358    +0.0062
+0.4    0.3974          0.0479    -0.0026
+0.6    0.6186          0.0538    +0.0186
+0.7    0.6733          0.0481    -0.0267
+0.8    0.8027          0.0357    +0.0027
+0.9    0.8444          0.0229    -0.0556

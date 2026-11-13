@@ -1,0 +1,70 @@
+study 2: fixation-history asymmetry in es switch trials
+=======================================================
+
+sample
+participants: 20 
+switch trials: 3305 
+# a tibble: 2 × 2
+  previous_source     n
+  <fct>           <int>
+1 s                1543
+2 e                1762
+
+model specification
+outcome: chose previously fixated option (0/1)
+predictors: previous source, value difference, overall value
+random effects: participant intercept
+
+primary result: previously fixated e vs s
+# a tibble: 1 × 6
+  comparison odds_ratio ci_low ci_high     z        p
+  <chr>           <dbl>  <dbl>   <dbl> <dbl>    <dbl>
+1 e vs s           3.02   2.45    3.72  10.4 2.42e-25
+
+model-adjusted probabilities and 95% ci
+  previous_source probability    ci_low   ci_high
+1               s   0.2474461 0.2153286 0.2795637
+2               e   0.3875682 0.3497220 0.4254145
+
+adjusted e minus s probability difference
+             term contrast  estimate std.error statistic      p.value  s.value  conf.low conf.high
+1 previous_source    e - s 0.1401221 0.0132107  10.60671 2.773462e-26 84.89844 0.1142296 0.1660146
+
+model diagnostics
+singular fit: false 
+convergence warnings: none 
+
+full glmm summary
+generalized linear mixed model fit by maximum likelihood (laplace approximation) ['glmermod']
+ family: binomial  ( logit )
+formula: chose_previous ~ previous_source + value_diff_z + overall_value_z +      (1 | sub_id)
+   data: switch_dat
+control: model_control
+
+      aic       bic    loglik -2*log(l)  df.resid 
+   2581.4    2611.9   -1285.7    2571.4      3300 
+
+scaled residuals: 
+    min      1q  median      3q     max 
+-4.9836 -0.4505 -0.1849  0.3333  8.8962 
+
+random effects:
+ groups name        variance std.dev.
+ sub_id (intercept) 0.2835   0.5325  
+number of obs: 3305, groups:  sub_id, 20
+
+fixed effects:
+                 estimate std. error z value pr(>|z|)    
+(intercept)      -1.91399    0.15125 -12.654   <2e-16 ***
+previous_sourcee  1.10463    0.10619  10.402   <2e-16 ***
+value_diff_z      2.01908    0.07470  27.028   <2e-16 ***
+overall_value_z   0.07735    0.04389   1.762    0.078 .  
+---
+signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+correlation of fixed effects:
+            (intr) prvs_e vl_df_
+previs_srce -0.450              
+value_dff_z -0.280  0.238       
+overll_vl_z  0.016 -0.041 -0.005
+[1] 120

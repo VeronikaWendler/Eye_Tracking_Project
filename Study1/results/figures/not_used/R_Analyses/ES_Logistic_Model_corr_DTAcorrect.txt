@@ -1,0 +1,36 @@
+### Logistic Mixed Model - ES Phase ###
+
+#### Model Summary ####
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: corr ~ OV * DwelltimeAdvantageCorrect + (1 | sub_id)
+   Data: data
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   4466.9    4500.9   -2228.4    4456.9      6715 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-88.140   0.158   0.254   0.377 119.543 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.2983   0.5461  
+Number of obs: 6720, groups:  sub_id, 21
+
+Fixed effects:
+                             Estimate Std. Error z value Pr(>|z|)    
+(Intercept)                   2.11808    0.17245  12.282   <2e-16 ***
+OV                            0.08236    0.06068   1.357    0.175    
+DwelltimeAdvantageCorrect     1.25362    0.12051  10.403   <2e-16 ***
+OV:DwelltimeAdvantageCorrect -0.03167    0.05763  -0.550    0.583    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) OV     DwllAC
+OV          -0.665              
+DwlltmAdvnC  0.385 -0.486       
+OV:DwlltmAC -0.358  0.530 -0.929
+
+#### Tab Model Output ####

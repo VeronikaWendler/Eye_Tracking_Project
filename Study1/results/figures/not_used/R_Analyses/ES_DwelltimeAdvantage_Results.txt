@@ -1,0 +1,109 @@
+
+ ### Polynomial Trend Mixed Model (DTA bin) ###
+Linear mixed model fit by REML. t-tests use Satterthwaite's method ['lmerModLmerTest']
+Formula: mean_p_choose_S ~ poly(DTA_num, 2, raw = FALSE) + (1 | sub_id)
+   Data: agg_data
+
+REML criterion at convergence: -97.6
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-3.0751 -0.5398  0.0111  0.6192  3.2747 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ sub_id   (Intercept) 0.001486 0.03856 
+ Residual             0.040708 0.20176 
+Number of obs: 311, groups:  sub_id, 21
+
+Fixed effects:
+                                Estimate Std. Error        df t value Pr(>|t|)    
+(Intercept)                      0.48729    0.01420  19.94719  34.305   <2e-16 ***
+poly(DTA_num, 2, raw = FALSE)1   4.62954    0.20192 289.73555  22.928   <2e-16 ***
+poly(DTA_num, 2, raw = FALSE)2   0.02348    0.20188 289.30287   0.116    0.907    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+                   (Intr) p(DTA_,2,r=FALSE)1
+p(DTA_,2,r=FALSE)1 0.001                    
+p(DTA_,2,r=FALSE)2 0.001  0.001             
+
+ ### Linear Mixed Model: OVcate_2 * DwellTimeAdvantage_ES_bin Effect ### 
+Type III Analysis of Variance Table with Satterthwaite's method
+                                    Sum Sq Mean Sq NumDF  DenDF F value Pr(>F)    
+OVcate_2                            0.1767  0.0883     2 276.14   2.257 0.1066    
+DwellTimeAdvantage_ES_bin          21.7360  5.4340     4 276.88 138.832 <2e-16 ***
+OVcate_2:DwellTimeAdvantage_ES_bin  0.3673  0.0459     8 276.14   1.173 0.3154    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+ ### Post-hoc Comparisons for OV Levels within Each Bin (LMM) ### 
+$emmeans
+DwellTimeAdvantage_ES_bin = 1:
+ OVcate_2 emmean     SE  df lower.CL upper.CL
+ low       0.183 0.0440 290   0.0962    0.269
+ medium    0.120 0.0440 290   0.0337    0.207
+ high      0.115 0.0440 290   0.0287    0.202
+
+DwellTimeAdvantage_ES_bin = 2:
+ OVcate_2 emmean     SE  df lower.CL upper.CL
+ low       0.307 0.0440 290   0.2204    0.394
+ medium    0.216 0.0440 290   0.1298    0.303
+ high      0.295 0.0440 290   0.2081    0.381
+
+DwellTimeAdvantage_ES_bin = 3:
+ OVcate_2 emmean     SE  df lower.CL upper.CL
+ low       0.449 0.0440 290   0.3623    0.536
+ medium    0.533 0.0440 290   0.4465    0.620
+ high      0.424 0.0440 290   0.3375    0.511
+
+DwellTimeAdvantage_ES_bin = 4:
+ OVcate_2 emmean     SE  df lower.CL upper.CL
+ low       0.750 0.0440 290   0.6634    0.837
+ medium    0.763 0.0440 290   0.6761    0.849
+ high      0.704 0.0440 290   0.6177    0.791
+
+DwellTimeAdvantage_ES_bin = 5:
+ OVcate_2 emmean     SE  df lower.CL upper.CL
+ low       0.886 0.0451 291   0.7976    0.975
+ medium    0.871 0.0451 291   0.7820    0.959
+ high      0.755 0.0463 292   0.6641    0.846
+
+Degrees-of-freedom method: kenward-roger 
+Confidence level used: 0.95 
+
+$contrasts
+DwellTimeAdvantage_ES_bin = 1:
+ contrast      estimate     SE  df t.ratio p.value
+ low - medium   0.06250 0.0611 276   1.024  0.9206
+ low - high     0.06750 0.0611 276   1.105  0.8097
+ medium - high  0.00499 0.0611 276   0.082  1.0000
+
+DwellTimeAdvantage_ES_bin = 2:
+ contrast      estimate     SE  df t.ratio p.value
+ low - medium   0.09060 0.0611 276   1.484  0.4169
+ low - high     0.01224 0.0611 276   0.201  1.0000
+ medium - high -0.07836 0.0611 276  -1.283  0.6013
+
+DwellTimeAdvantage_ES_bin = 3:
+ contrast      estimate     SE  df t.ratio p.value
+ low - medium  -0.08417 0.0611 276  -1.379  0.5074
+ low - high     0.02484 0.0611 276   0.407  1.0000
+ medium - high  0.10901 0.0611 276   1.785  0.2259
+
+DwellTimeAdvantage_ES_bin = 4:
+ contrast      estimate     SE  df t.ratio p.value
+ low - medium  -0.01268 0.0611 276  -0.208  1.0000
+ low - high     0.04574 0.0611 276   0.749  1.0000
+ medium - high  0.05842 0.0611 276   0.957  1.0000
+
+DwellTimeAdvantage_ES_bin = 5:
+ contrast      estimate     SE  df t.ratio p.value
+ low - medium   0.01561 0.0626 276   0.249  1.0000
+ low - high     0.13118 0.0634 277   2.069  0.1185
+ medium - high  0.11558 0.0634 277   1.823  0.2083
+
+Degrees-of-freedom method: kenward-roger 
+P value adjustment: bonferroni method for 3 tests 
+

@@ -1,0 +1,17 @@
+Study 2: ES choice curves and empirical indifference points
+
+Participants: 24 
+Trials: 8640 
+
+Intersections of observed group choice curves with P(choose E) = 0.50
+# A tibble: 8 × 2
+    p_E midpoint
+  <dbl>    <dbl>
+1   0.1    0.305
+2   0.2    0.287
+3   0.3    0.565
+4   0.4    0.431
+5   0.6    0.658
+6   0.7    0.542
+7   0.8    0.773
+8   0.9    0.859

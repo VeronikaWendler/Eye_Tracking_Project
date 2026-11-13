@@ -1,0 +1,41 @@
+Logistic mixed model - EE phase
+
+Outcome: chose right
+Predictor: DwellTimeAdvantage 
+
+Model formula:
+chose_right ~ DwellTimeAdvantage + (1 | sub_id)
+
+
+Model summary
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: chose_right ~ DwellTimeAdvantage + (1 | sub_id)
+   Data: model_data
+Control: glmerControl(optimizer = "bobyqa")
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   3247.7    3265.6   -1620.8    3241.7      2937 
+
+Scaled residuals: 
+   Min     1Q Median     3Q    Max 
+ -5.70  -0.68  -0.21   0.70 555.79 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.01354  0.1163  
+Number of obs: 2940, groups:  sub_id, 21
+
+Fixed effects:
+                   Estimate Std. Error z value Pr(>|z|)    
+(Intercept)        -0.06837    0.04982  -1.372     0.17    
+DwellTimeAdvantage  1.36126    0.05729  23.760   <2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr)
+DwllTmAdvnt -0.048
+
+
+Tab model output

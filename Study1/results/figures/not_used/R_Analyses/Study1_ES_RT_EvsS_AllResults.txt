@@ -1,0 +1,85 @@
+Study 1 - ES reaction time for E and S choices
+============================================================
+
+Sample information
+------------------------------------------------------------
+Number of ES trials: 9000 
+Number of participants: 25 
+
+Trials by choice type
+
+   S    E 
+4358 4642 
+
+
+Participant-level descriptive statistics
+------------------------------------------------------------
+# A tibble: 2 × 5
+  choice_type     n mean_rt sd_rt sem_rt
+  <fct>       <int>   <dbl> <dbl>  <dbl>
+1 S              25    1.15 0.446 0.0892
+2 E              25    1.08 0.366 0.0733
+
+
+Participant-level paired t-test on mean log RT
+------------------------------------------------------------
+
+	Paired t-test
+
+data:  rtime_wide$E and rtime_wide$S
+t = -2.3667, df = 24, p-value = 0.02636
+alternative hypothesis: true mean difference is not equal to 0
+95 percent confidence interval:
+ -0.096775979 -0.006613286
+sample estimates:
+mean difference 
+    -0.05169463 
+
+
+
+Trial-level linear mixed model
+Outcome: log reaction time
+Model: logRT ~ choice_type + (1 | sub_id)
+Reference category: S
+------------------------------------------------------------
+Linear mixed model fit by REML. t-tests use Satterthwaite's method ['lmerModLmerTest']
+Formula: logRT ~ choice_type + (1 | sub_id)
+   Data: es_data
+
+REML criterion at convergence: 11297.5
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-2.6048 -0.6662 -0.1698  0.4674  6.2328 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ sub_id   (Intercept) 0.07684  0.2772  
+ Residual             0.20244  0.4499  
+Number of obs: 9000, groups:  sub_id, 25
+
+Fixed effects:
+               Estimate Std. Error         df t value Pr(>|t|)    
+(Intercept)  -4.412e-02  5.586e-02  2.438e+01  -0.790    0.437    
+choice_typeE -5.232e-02  9.568e-03  8.976e+03  -5.468 4.68e-08 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr)
+choice_typE -0.088
+
+
+Estimated marginal means
+Geometric mean RTs are back-transformed to seconds
+------------------------------------------------------------
+  choice_type      emmean         SE  df  asymp.LCL  asymp.UCL   z.ratio    p.value geometric_mean_rt ci_low_seconds ci_high_seconds
+1           S -0.04412295 0.05585926 Inf -0.1536051 0.06535919 -0.789895 0.42958907         0.9568363      0.8576106        1.067542
+2           E -0.09644071 0.05583340 Inf -0.2058722 0.01299074 -1.727294 0.08411483         0.9080637      0.8139371        1.013075
+
+
+E vs S model comparison
+RT ratio is the exponentiated log-RT difference
+------------------------------------------------------------
+  contrast   estimate          SE  df  asymp.LCL  asymp.UCL  z.ratio      p.value rt_ratio ratio_ci_low ratio_ci_high
+1    S - E 0.05231775 0.009568199 Inf 0.03356443 0.07107108 5.467879 4.554536e-08 1.053711     1.034134      1.073658

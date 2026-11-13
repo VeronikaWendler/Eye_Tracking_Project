@@ -1,0 +1,36 @@
+# Build behavioural and gaze files — Study 2
+
+This pipeline combines behavioural and gaze data into the final Study 2 analysis-ready dataset.
+
+## Before running
+
+Complete the MATLAB-to-CSV conversion for LE, ES, EE and SP, and run `study2_eye_asc.py` in all three modes.
+
+## Run order
+
+1. `01_build_behaviour_spatial.py`
+   Combines participant-level behavioural files across LE, ES, EE and SP.
+   Output: `Study2_Behaviour.csv`.
+
+2. `study2_parsing_safety_audit.py`
+   Located in `Study2_RawGaze_to_Participant_CSV`. Checks trial alignment and raw EyeLink responses against behaviour.
+   Output: `Study2_FINAL_EYE_PARSING_SAFETY_AUDIT.csv`.
+   Run this after step 1 and before step 3.
+
+3. `02_attach_all_eye_spatial.py`
+   Attaches response/all-fixation gaze to LE, ES and EE, and feedback gaze to LE.
+   Output: `Study2_Behaviour_with_Gaze.csv` and a merge audit.
+
+4. `03_create_analysis_coordinates_and_addm_cols.py`
+   Adds choice/value variables, E/S-aligned gaze measures, dwell-time advantages and aDDM regressors.
+   Output: `Study2_Behaviour_with_Gaze_AnalysisReady.csv` and a feature audit.
+
+All outputs are saved in:
+`D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/`
+
+## Important details
+
+- Physical left/right positions are preserved; E/S-relative variables are added separately.
+- Gaze is matched using participant, phase and within-phase trial number.
+- Behavioural rows are retained when validated gaze is unavailable, with gaze measures left missing.
+- The behavioural master includes participants 1–27 except 14 and 20. Gaze validation additionally excludes 2, 6, 9, 18 and 26.

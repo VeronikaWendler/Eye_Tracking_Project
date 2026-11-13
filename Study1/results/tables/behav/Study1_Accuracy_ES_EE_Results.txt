@@ -1,0 +1,29 @@
+Study 1: Accuracy comparison between ES and EE
+
+Participants: 25 
+
+Descriptive statistics (mean, SD, 95% CI)
+# A tibble: 2 × 6
+  phase     n mean_accuracy sd_accuracy ci_low ci_high
+  <fct> <int>         <dbl>       <dbl>  <dbl>   <dbl>
+1 ES       25         0.873      0.0561  0.850   0.896
+2 EE       25         0.821      0.1000  0.780   0.863
+
+Paired t-test (ES - EE)
+
+	Paired t-test
+
+data:  wide_df$ES and wide_df$EE
+t = 3.9767, df = 24, p-value = 0.0005588
+alternative hypothesis: true mean difference is not equal to 0
+95 percent confidence interval:
+ 0.02485953 0.07850555
+sample estimates:
+mean difference 
+     0.05168254 
+
+
+Paired Cohen's d
+Cohen's d |       95% CI
+------------------------
+0.80      | [0.34, 1.24]

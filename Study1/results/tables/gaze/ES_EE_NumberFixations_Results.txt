@@ -1,0 +1,52 @@
+number of fixations: es vs ee
+========================================
+
+sample
+participants: 21 
+trials: 9990 
+
+  phase    n
+1    ee 2756
+2    es 7234
+
+participant-level means and 95% ci
+# a tibble: 2 × 6
+  phase n_participants mean_n_fix sd_n_fix ci_low ci_high
+  <fct>          <int>      <dbl>    <dbl>  <dbl>   <dbl>
+1 ee                21       2.89    0.894   2.48    3.29
+2 es                21       3.39    0.972   2.95    3.84
+
+primary comparison: paired participant-level t-test
+es - ee = 0.505 fixations, 95% ci [0.266, 0.745], t(20) = 4.410, p = < 0.001
+
+paired cohen's d
+cohen's d |       95% ci
+------------------------
+0.96      | [0.43, 1.47]
+
+wilcoxon signed-rank sensitivity test
+
+	wilcoxon signed rank test with continuity correction
+
+data:  fix_wide$es and fix_wide$ee
+v = 211, p-value = 0.0009601
+alternative hypothesis: true location shift is not equal to 0
+
+
+participant-level paired differences
+# a tibble: 21 × 4
+   sub_id    ee    es es_minus_ee
+    <int> <dbl> <dbl>       <dbl>
+ 1      2  3.24  4.12     0.882  
+ 2      3  3.25  3.23    -0.0197 
+ 3      7  3.73  3.70    -0.0313 
+ 4      8  1.53  2.56     1.03   
+ 5      9  3.77  3.69    -0.0764 
+ 6     10  3.72  3.12    -0.597  
+ 7     11  1.99  2.43     0.449  
+ 8     12  3.51  4.31     0.801  
+ 9     13  1.35  1.36     0.00499
+10     15  2     2.61     0.614  
+# ℹ 11 more rows
+# ℹ use `print(n = ...)` to see more rows
+[1] 120

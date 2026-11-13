@@ -1,0 +1,29 @@
+Study 2: Reaction times in ES vs EE
+
+Participants: 24 
+
+Descriptive statistics (mean, SD, 95% CI)
+# A tibble: 2 × 6
+  phase     n mean_rt sd_rt ci_low ci_high
+  <fct> <int>   <dbl> <dbl>  <dbl>   <dbl>
+1 ES       24   1.13  0.478  0.930    1.33
+2 EE       24   0.894 0.317  0.760    1.03
+
+Paired t-test (ES - EE)
+
+	Paired t-test
+
+data:  wide_df$ES and wide_df$EE
+t = 4.8226, df = 23, p-value = 7.246e-05
+alternative hypothesis: true mean difference is not equal to 0
+95 percent confidence interval:
+ 0.1355522 0.3391950
+sample estimates:
+mean difference 
+      0.2373736 
+
+
+Paired Cohen's d
+Cohen's d |       95% CI
+------------------------
+0.98      | [0.49, 1.47]

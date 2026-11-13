@@ -1,0 +1,78 @@
+FINAL FIXATION DURATION: ES VS EE
+=================================
+
+Participant-level descriptive means
+# A tibble: 2 × 6
+  phase  mean    sd n_sub    se  ci95
+  <fct> <dbl> <dbl> <int> <dbl> <dbl>
+1 ES     471.  75.7    21  16.5  34.5
+2 EE     458.  75.0    21  16.4  34.2
+
+Participant-level paired test: ES - EE
+
+	Paired t-test
+
+data:  final_wide$ES and final_wide$EE
+t = 1.2449, df = 20, p-value = 0.2276
+alternative hypothesis: true mean difference is not equal to 0
+95 percent confidence interval:
+ -8.99140 35.60951
+sample estimates:
+mean difference 
+       13.30905 
+
+
+Trial-level mixed model
+Linear mixed model fit by maximum likelihood . t-tests use Satterthwaite's method ['lmerModLmerTest']
+Formula: FinalFixDur ~ phase + (1 | sub_id)
+   Data: final
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+ 136590.0  136618.9  -68291.0  136582.0      9987 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-2.3985 -0.6947 -0.1568  0.5765  7.8621 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ sub_id   (Intercept)  4863     69.73  
+ Residual             50239    224.14  
+Number of obs: 9991, groups:  sub_id, 21
+
+Fixed effects:
+            Estimate Std. Error       df t value Pr(>|t|)    
+(Intercept)  458.447     15.807   23.449  29.003   <2e-16 ***
+phaseES       12.331      5.018 9970.291   2.457    0.014 *  
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+        (Intr)
+phaseES -0.230
+
+Omnibus test
+Type III Analysis of Variance Table with Satterthwaite's method
+      Sum Sq Mean Sq NumDF  DenDF F value  Pr(>F)  
+phase 303362  303362     1 9970.3  6.0384 0.01402 *
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Estimated marginal means
+ phase emmean   SE  df asymp.LCL asymp.UCL
+ EE       458 15.8 Inf       427       489
+ ES       471 15.4 Inf       441       501
+
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+ES - EE contrast
+ contrast estimate   SE  df z.ratio p.value
+ ES - EE      12.3 5.02 Inf   2.457  0.0140
+
+Degrees-of-freedom method: asymptotic 
+
+Random effects
+ Groups   Name        Std.Dev.
+ sub_id   (Intercept)  69.733 
+ Residual             224.140 

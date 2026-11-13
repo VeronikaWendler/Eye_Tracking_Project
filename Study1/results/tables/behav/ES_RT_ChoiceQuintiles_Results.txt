@@ -1,0 +1,88 @@
+ES: choice by rt quintile
+
+sample
+# A tibble: 1 × 2
+  trials participants
+   <int>        <int>
+1   8992           25
+
+participant-level descriptives (mean +/- sem)
+# A tibble: 10 × 4
+   rtime_bin Choice mean_prob    sem
+   <fct>     <fct>      <dbl>  <dbl>
+ 1 0-20%     E          0.565 0.0330
+ 2 0-20%     S          0.435 0.0330
+ 3 20-40%    E          0.538 0.0209
+ 4 20-40%    S          0.462 0.0209
+ 5 40-60%    E          0.509 0.0172
+ 6 40-60%    S          0.491 0.0172
+ 7 60-80%    E          0.496 0.0142
+ 8 60-80%    S          0.504 0.0142
+ 9 80-100%   E          0.469 0.0204
+10 80-100%   S          0.531 0.0204
+
+overall rt-quintile effect
+Data: rt_dat
+Models:
+model_null: chose_E ~ 1 + (1 | sub_id)
+model: chose_E ~ rtime_bin + (1 | sub_id)
+           npar   AIC   BIC  logLik -2*log(L)  Chisq Df Pr(>Chisq)    
+model_null    2 12382 12396 -6188.8     12378                         
+model         6 12349 12392 -6168.7     12337 40.295  4   3.76e-08 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+glmm summary
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: chose_E ~ rtime_bin + (1 | sub_id)
+   Data: rt_dat
+Control: control
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+  12349.3   12391.9   -6168.7   12337.3      8986 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-1.3996 -1.0148  0.7547  0.9559  1.4399 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.05696  0.2387  
+Number of obs: 8992, groups:  sub_id, 25
+
+Fixed effects:
+                 Estimate Std. Error z value Pr(>|z|)    
+(Intercept)       0.26480    0.06759   3.918 8.95e-05 ***
+rtime_bin20-40%  -0.10935    0.06750  -1.620 0.105244    
+rtime_bin40-60%  -0.22891    0.06743  -3.395 0.000687 ***
+rtime_bin60-80%  -0.28080    0.06743  -4.164 3.12e-05 ***
+rtime_bin80-100% -0.38924    0.06751  -5.766 8.13e-09 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr) r_20-4 r_40-6 r_60-8
+rtm_b20-40% -0.502                     
+rtm_b40-60% -0.503  0.503              
+rtm_b60-80% -0.503  0.503  0.504       
+rtm_80-100% -0.502  0.503  0.503  0.503
+
+model-estimated choice probabilities
+ rtime_bin      prob         SE  df asymp.LCL asymp.UCL
+ 0-20%     0.5658147 0.01660535 Inf 0.5330309 0.5980326
+ 20-40%    0.5387832 0.01675222 Inf 0.5058285 0.5714024
+ 40-60%    0.5089707 0.01682947 Inf 0.4759943 0.5418691
+ 60-80%    0.4959992 0.01683269 Inf 0.4630729 0.5289603
+ 80-100%   0.4689300 0.01678868 Inf 0.4362067 0.5019226
+
+Confidence level used: 0.95 
+Intervals are back-transformed from the logit scale 
+
+E vs S within rt quintiles (holm corrected)
+  rtime_bin      emmean         SE  df    z.ratio      p.value       p_holm significance
+1     0-20%  0.26479533 0.06759254 Inf  3.9175228 8.946358e-05 0.0004473179          ***
+2    20-40%  0.15544512 0.06741447 Inf  2.3058123 2.112112e-02 0.0844844933             
+3    40-60%  0.03588651 0.06733958 Inf  0.5329186 5.940899e-01 1.0000000000             
+4    60-80% -0.01600337 0.06733508 Inf -0.2376676 8.121389e-01 1.0000000000             
+5   80-100% -0.12444043 0.06741502 Inf -1.8458858 6.490879e-02 0.1947263806             

@@ -1,0 +1,60 @@
+number of fixations: es vs ee
+========================================
+
+sample
+participants: 20 
+trials: 8911 
+
+  phase    n
+1    ee 2363
+2    es 6548
+
+participant-level means and 95% ci
+# a tibble: 2 × 6
+  phase n_participants mean_n_fix sd_n_fix ci_low ci_high
+  <fct>          <int>      <dbl>    <dbl>  <dbl>   <dbl>
+1 ee                20       2.64    0.826   2.26    3.03
+2 es                20       3.38    1.18    2.83    3.93
+
+primary comparison: paired participant-level t-test
+es - ee = 0.737 fixations, 95% ci [0.466, 1.009], t(19) = 5.688, p = < 0.001
+
+paired cohen's d
+cohen's d |       95% ci
+------------------------
+1.27      | [0.67, 1.86]
+
+wilcoxon signed-rank sensitivity test
+
+	wilcoxon signed rank test with continuity correction
+
+data:  fix_wide$es and fix_wide$ee
+v = 207, p-value = 0.0001511
+alternative hypothesis: true location shift is not equal to 0
+
+
+participant-level paired differences
+# a tibble: 20 × 4
+   sub_id    ee    es es_minus_ee
+    <int> <dbl> <dbl>       <dbl>
+ 1      1  4.11  4.56      0.444 
+ 2      3  3.76  4.29      0.533 
+ 3      4  2.73  3.58      0.849 
+ 4      5  2.91  4.50      1.60  
+ 5      7  2.57  3.65      1.08  
+ 6      8  3.32  3.45      0.127 
+ 7     10  1.5   1.84      0.340 
+ 8     11  3.26  3.86      0.597 
+ 9     12  2.41  3.53      1.12  
+10     13  2.91  4.04      1.13  
+11     15  2.95  3.66      0.714 
+12     16  3.96  6.13      2.17  
+13     17  2.18  2.21      0.0299
+14     19  2.56  2.77      0.210 
+15     21  1.66  2.39      0.730 
+16     22  2.09  2.36      0.263 
+17     23  3.29  4.78      1.49  
+18     24  1.68  2.63      0.950 
+19     25  1.5   1.32     -0.182 
+20     27  1.54  2.10      0.559 
+[1] 120

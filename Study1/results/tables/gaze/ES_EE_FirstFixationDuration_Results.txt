@@ -1,0 +1,72 @@
+first-fixation duration: es vs ee
+========================================
+
+sample
+participants: 21 
+valid first-fixation observations: 9985 
+
+  phase    n
+1    ee 2755
+2    es 7230
+
+participant-level means and 95% ci
+# a tibble: 2 × 6
+  phase n_participants mean_duration sd_duration ci_low ci_high
+  <fct>          <dbl>         <dbl>       <dbl>  <dbl>   <dbl>
+1 ee                21          272.        65.2   242.    302.
+2 es                21          241.        64.8   212.    271.
+
+paired participant-level comparison
+es - ee = -31.13 ms, 95% ci [-51.72, -10.54], t(20) = -3.153, p = 0.005
+
+paired cohen's d
+cohen's d |         95% ci
+--------------------------
+-0.69     | [-1.16, -0.20]
+
+model-estimated geometric means and 95% ci
+  phase geometric_mean_ms ci_low_ms ci_high_ms
+1    ee          227.9164  203.9072   254.7524
+2    es          199.7563  179.3637   222.4675
+
+model contrast: es vs ee
+  contrast   estimate         se       df  lower.cl    upper.cl   t.ratio      p.value duration_ratio ratio_low ratio_high percent_change
+1  es - ee -0.1318805 0.02992519 19.40627 -0.194426 -0.06933499 -4.407007 0.0002895487      0.8764457 0.8233071  0.9330141      -12.35543
+
+paper-ready mixed-model result
+es/ee duration ratio = 0.876, 95% ci [0.823, 0.933], p = < 0.001, change = -12.4%
+
+mixed-effects model
+linear mixed model fit by reml. t-tests use satterthwaite's method ['lmermodlmertest']
+formula: log_duration ~ phase + (1 + phase | sub_id)
+   data: first
+control: model_control
+
+reml criterion at convergence: 17277.3
+
+scaled residuals: 
+    min      1q  median      3q     max 
+-9.6363 -0.4724  0.0262  0.4827  4.5296 
+
+random effects:
+ groups   name        variance std.dev. corr 
+ sub_id   (intercept) 0.05729  0.2393        
+          phasees     0.01533  0.1238   -0.30
+ residual             0.32596  0.5709        
+number of obs: 9985, groups:  sub_id, 21
+
+fixed effects:
+            estimate std. error       df t value pr(>|t|)    
+(intercept)  5.42898    0.05337 20.02278 101.729  < 2e-16 ***
+phasees     -0.13188    0.02993 19.40627  -4.407  0.00029 ***
+---
+signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+correlation of fixed effects:
+        (intr)
+phasees -0.338
+
+model diagnostics
+singular fit: false 
+convergence warnings: none 
+[1] 120

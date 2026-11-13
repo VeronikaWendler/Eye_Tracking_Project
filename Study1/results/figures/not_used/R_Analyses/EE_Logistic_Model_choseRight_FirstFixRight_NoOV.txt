@@ -1,0 +1,41 @@
+Logistic mixed model - EE phase
+
+Outcome: chose right
+Predictor: FirstFix_Right 
+
+Model formula:
+chose_right ~ FirstFix_Right + (1 | sub_id)
+
+
+Model summary
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: chose_right ~ FirstFix_Right + (1 | sub_id)
+   Data: model_data
+Control: glmerControl(optimizer = "bobyqa")
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   3750.3    3768.1   -1872.1    3744.3      2754 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-1.3585 -0.8777 -0.8330  1.1164  1.2005 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.01165  0.1079  
+Number of obs: 2757, groups:  sub_id, 21
+
+Fixed effects:
+               Estimate Std. Error z value Pr(>|z|)    
+(Intercept)    -0.28502    0.05427  -5.251 1.51e-07 ***
+FirstFix_Right  0.76349    0.09670   7.896 2.89e-15 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr)
+FrstFx_Rght -0.549
+
+
+Tab model output

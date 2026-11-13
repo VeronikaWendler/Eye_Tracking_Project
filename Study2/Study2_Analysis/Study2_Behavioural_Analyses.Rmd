@@ -1,0 +1,2377 @@
+---
+title: "Behavioural_R"
+output:
+  pdf_document: default
+  html_document: default
+date: "2025-04-16"
+---
+
+#1. Behavioural Data Analysis - Study 2 
+```{r}
+# libraries % file
+rm(list = ls())
+
+library(tidyverse)
+library(rstatix)
+library(ggpubr)
+library(lme4)
+library(lmerTest)
+library(ggplot2)
+library(dplyr)
+library(effsize)  # for Cohen's d
+library(tidyr)
+library(dplyr)
+library(rstatix) # also for cohen's d
+library(effectsize)
+library(purrr)
+library(dplyr)
+install.packages("afex")
+library(afex)
+library(dplyr)
+library(emmeans)
+library(dplyr)
+library(rstatix)
+library(ez)
+library(dplyr)
+library(gt)
+
+
+file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+
+raw <- read.csv(file, stringsAsFactors = FALSE)
+
+phases <- c("LE", "ES", "EE")
+excluded_subs <- c(6, 14)   #6 and 14 have insuffiecient data in Study2... exclusion of participants from behavioral data
+
+raw_beh <- raw %>%
+  filter(
+    phase %in% phases,
+    !sub_id %in% excluded_subs
+  )
+
+
+
+# Keep original physical left/right behavioural columns
+
+data <- raw_beh %>%
+  transmute(
+    sub_id,
+    participant_row,
+    phase,
+    trial,
+    sess,
+    cond,
+
+    # Original option positions
+    op1,
+    op2,
+
+    # Original values / probabilities
+    ev1,
+    ev2,
+    p1,
+    p2,
+
+    # Original choice:
+    # cho = 1 -> option 1 / left
+    # cho = 2 -> option 2 / right
+    cho,
+
+    corr,
+    rtime,
+    rew,
+    out,
+    cfout
+  )
+
+
+
+# get chosen stimulus identity
+
+data <- data %>%
+  mutate(
+    chosen_stimulus = case_when(
+      cho == 1 ~ op1,
+      cho == 2 ~ op2,
+      TRUE ~ NA_character_
+    ),
+
+    chose_E = case_when(
+      phase == "ES" & chosen_stimulus == "E" ~ 1L,
+      phase == "ES" & chosen_stimulus == "S" ~ 0L,
+      TRUE ~ NA_integer_
+    ),
+
+    chose_S = case_when(
+      phase == "ES" & chosen_stimulus == "S" ~ 1L,
+      phase == "ES" & chosen_stimulus == "E" ~ 0L,
+      TRUE ~ NA_integer_
+    )
+  )
+
+
+
+# Safety audits
+
+# ES trials must contain exactly one E and one S
+stopifnot(
+  all(
+    with(
+      filter(data, phase == "ES"),
+      (op1 == "E" & op2 == "S") |
+      (op1 == "S" & op2 == "E")
+    )
+  )
+)
+
+# Physical choice must map to the correct stimulus
+stopifnot(
+  all(
+    data$chosen_stimulus[data$cho == 1] ==
+      data$op1[data$cho == 1],
+    na.rm = TRUE
+  )
+)
+
+stopifnot(
+  all(
+    data$chosen_stimulus[data$cho == 2] ==
+      data$op2[data$cho == 2],
+    na.rm = TRUE
+  )
+)
+
+# Compare reconstructed choices against AnalysisReady labels
+# Only LE, ES and EE trials are included
+
+n_disagreements <- sum(
+  raw_beh$stim_chosen != data$chosen_stimulus,
+  na.rm = TRUE
+)
+
+print(n_disagreements)  # Expected: 0
+
+stopifnot(n_disagreements == 0)
+
+# Check missing choice identities separately
+sum(is.na(data$chosen_stimulus))
+
+```
+
+# 2. Filter phases, get mean, remove outliers, check normality
+```{r}
+# phases
+phases<- c("LE", "ES", "EE")
+excluded_subs <- c(6,14)   # exclusion of participants from behavioral data
+
+data_filt <- data %>%
+  filter(phase %in% phases & !sub_id %in% excluded_subs)
+
+# mean accuracy per participant and phase
+accuracy_df <- data_filt %>%
+  group_by(sub_id, phase) %>%
+  summarise(Mean_Accuracy = mean(corr), .groups = "drop")
+
+# removing outliers
+outliers <- accuracy_df %>%
+  group_by(phase) %>%
+  identify_outliers(Mean_Accuracy)
+accuracy_df <- accuracy_df %>%
+  filter(!(sub_id %in% outliers$sub_id[outliers$is.extreme]))
+
+# normality assumption test
+shapiro_results_corr <- accuracy_df %>%
+  group_by(phase) %>%
+  summarise(Shapiro_p = shapiro.test(Mean_Accuracy)$p.value)
+```
+
+# 3. Accuracy per choice problem in the LE phase
+
+```{r}
+# get the accuracy for each difficulty level in the LE phase (10/30, 20/60, 40/80, 70/90)
+
+fig_out <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/Study2_Mean_Acc_LE_cond.pdf"    
+
+learning_cond <- c(3, 2, 1, 0)
+
+# Prepare data
+learning_acc_df <- data %>%
+  filter(phase == "LE", cond %in% learning_cond, !sub_id %in% excluded_subs) %>%
+  group_by(sub_id, cond) %>%
+  summarise(mean_acc_LE = mean(corr), .groups = "drop") %>%
+  mutate(cond = factor(cond, levels = c(3, 2, 1, 0),
+                       labels = c("30/10", "60/20", "80/40", "90/70")),
+         cond_num = as.numeric(cond),
+         jittered_x = cond_num + runif(n(), -0.10, 0.10))
+
+# Group means for asterisks
+mean_points_LE <- learning_acc_df %>%
+  group_by(cond) %>%
+  summarise(mean_val = mean(mean_acc_LE), .groups = "drop")
+
+# Define color palette
+cond_colors <- c(
+  "30/10" = "rosybrown1",
+  "60/20" = "rosybrown2",
+  "80/40" = "rosybrown3",
+  "90/70" = "rosybrown4"
+)
+
+# Create plot
+learning_acc_plot <- ggplot() +
+  geom_boxplot(data = learning_acc_df, aes(x = cond, y = mean_acc_LE, fill = cond),
+               width = 0.55, outlier.shape = NA, alpha = 0.7) +
+  geom_line(data = learning_acc_df, aes(x = jittered_x, y = mean_acc_LE, group = sub_id),
+            color = "black", alpha = 0.05) +
+  geom_point(data = learning_acc_df, aes(x = jittered_x, y = mean_acc_LE),
+             color = "black", size = 2, alpha = 0.3) +
+  geom_text(data = mean_points_LE, aes(x = cond, y = mean_val, label = "*"),
+            color = "red", size = 10, fontface = "bold") +
+  scale_fill_manual(values = cond_colors, guide = "none") +
+  labs(
+    title = "Mean Accuracy Across Blocks in the LE Phase",
+    x = "Condition",
+    y = "Mean Accuracy (%)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.major.y = element_line(color = "gray80", size = 0.3),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.ticks.x = element_line(color = "black"),
+    axis.ticks.y = element_blank(),
+    axis.ticks.length = unit(4, "pt"),
+    axis.line = element_blank(),
+    plot.title = element_text(size = 18),
+    axis.title.x = element_text(size = 18),
+    axis.title.y = element_text(size = 18),
+    axis.text.x = element_text(size = 18, color = "black"),
+    axis.text.y = element_text(size = 18, color = "black") 
+)
+
+ggsave(filename = fig_out, plot = learning_acc_plot, width = 8, height = 6, dpi = 300)
+ggsave(filename = sub("\\.pdf$", ".png", fig_out), plot = learning_acc_plot, width = 8, height = 6, dpi = 300)
+
+learning_acc_plot
+
+```
+
+# Mean accuracy per learning block stats
+
+```{r}
+# maakign cond  factor
+learning_acc_df <- learning_acc_df %>%
+  mutate(cond = factor(cond, levels = c("30/10","60/20","80/40","90/70")))
+
+anov <- ezANOVA(
+  data        = learning_acc_df,
+  dv          = .(mean_acc_LE),
+  wid         = .(sub_id),
+  within      = .(cond),
+  type        = 3,
+  detailed    = TRUE     
+)
+
+print(anov)
+
+##########################################################################
+posthoc <- learning_acc_df %>%
+  pairwise_t_test(
+    mean_acc_LE ~ cond,
+    paired         = TRUE,
+    p.adjust.method = "bonferroni",
+    conf.level      = 0.95,        
+    detailed        = TRUE         
+  )
+
+posthoc
+
+learning_acc_df %>%
+  group_by(cond) %>%
+  summarise(
+    n         = n(),
+    mean_acc  = mean(mean_acc_LE),
+    sd_acc    = sd(mean_acc_LE),
+    sem_acc   = sd_acc / sqrt(n),
+    .groups   = "drop"
+  )
+
+# posthoc table
+posthoc_tbl <- posthoc %>%
+  mutate(
+    contrast  = paste(group1, "–", group2),
+    estimate  = round(estimate, 2),
+    statistic = round(statistic, 2),
+    conf.low  = round(conf.low, 2),
+    conf.high = round(conf.high, 2),
+    p.adj     = round(p.adj, 2)
+  ) %>%
+  select(contrast, estimate, conf.low, conf.high, statistic, df, p.adj)
+
+write.csv(posthoc_tbl, "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/Study2_table_LE.csv", row.names = FALSE)
+
+
+#stats table
+desc_tbl <- learning_acc_df %>%
+  group_by(cond) %>%
+  summarise(
+    n        = n(),
+    mean_acc = mean(mean_acc_LE),
+    sd_acc   = sd(mean_acc_LE),
+    sem_acc  = sd_acc / sqrt(n),
+    .groups  = "drop"
+  ) %>%
+  mutate(
+    mean_acc = round(mean_acc, 2),
+    sd_acc   = round(sd_acc, 2),
+    sem_acc  = round(sem_acc, 2)
+  )
+
+write.csv(desc_tbl, "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/Study2_table_LE_descriptives.csv", row.names = FALSE)
+
+```
+
+
+
+# Mean RT per learning block
+```{r}
+
+learning_rt_df <- data %>%
+  filter(phase == "LE",
+         cond %in% learning_cond,
+         !sub_id %in% excluded_subs) %>%
+  group_by(sub_id, cond) %>%
+  summarise(mean_rt_LE = mean(rtime) * 1000,   
+            .groups = "drop") %>%
+  mutate(cond = factor(cond, levels = c(3, 2, 1, 0),
+                       labels = c("30/10", "60/20", "80/40", "90/70")),
+         cond_num  = as.numeric(cond),
+         jittered_x = cond_num + runif(n(), -0.10, 0.10))
+# the red mean point
+mean_points_rt <- learning_rt_df %>%
+  group_by(cond) %>%
+  summarise(mean_val = mean(mean_rt_LE), .groups = "drop")
+
+learning_rt_plot <- ggplot() +
+  geom_boxplot(data = learning_rt_df,aes(x = cond, y = mean_rt_LE, fill = cond), width = 0.55, outlier.shape = NA, alpha = 0.7) +
+  geom_line(data = learning_rt_df,aes(x = jittered_x, y = mean_rt_LE, group = sub_id), color = "black", alpha = 0.3) +
+  geom_point(data = learning_rt_df,aes(x = jittered_x, y = mean_rt_LE),color = "black", size = 2, alpha = 0.7) +
+  geom_text(data = mean_points_rt,aes(x = cond, y = mean_val, label = "*"),color = "red", size = 10, fontface = "bold") +
+  scale_fill_manual(values = cond_colors, guide = "none") +
+  labs(title = "Mean Reaction Time Across Blocks in the LE Phase",x = "Condition",y = "Mean Reaction Time (ms)") +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.major.y = element_line(color = "gray80", size = 0.4),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.ticks.x = element_line(color = "black"),
+    axis.ticks.y = element_blank(),
+    axis.ticks.length = unit(4, "pt"),
+    axis.line = element_blank(),
+    plot.title = element_text(size = 18),
+    axis.title.x = element_text(size = 18),
+    axis.title.y = element_text(size = 18),
+    axis.text.x  = element_text(size = 18, color = "black"),
+    axis.text.y  = element_text(size = 18, color = "black")
+  )
+
+fig_out_rt <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/Study2_Mean_RT_LE_cond.pdf"
+ggsave(filename = fig_out_rt, plot = learning_rt_plot, width = 8, height = 6, dpi = 300)
+ggsave(filename = sub("\\.pdf$", ".png", fig_out_rt), plot = learning_rt_plot, width = 8, height = 6, dpi = 300)
+
+learning_rt_plot
+
+```
+
+# Mean RT per learning block 
+```{r}
+learning_rt_df <- data %>% 
+  filter(phase == "LE",cond %in% learning_cond,!sub_id %in% excluded_subs) %>%
+  mutate(logRT = log(rtime)) %>% 
+  group_by(sub_id, cond) %>% 
+  summarise(mean_logRT = mean(logRT),
+            .groups = "drop") %>% 
+  mutate(cond = factor(cond,
+                       levels = c(3, 2, 1, 0),
+                       labels = c("30/10", "60/20", "80/40", "90/70")))
+
+anov_rt <- ezANOVA(
+  data     = learning_rt_df,
+  dv       = .(mean_logRT),
+  wid      = .(sub_id),
+  within   = .(cond),
+  type     = 3,
+  detailed = TRUE
+)
+summary(anov_rt)
+
+posthoc_rt <- learning_rt_df %>% 
+  pairwise_t_test(
+    mean_logRT ~ cond,
+    paired          = TRUE,
+    p.adjust.method = "bonferroni",
+    conf.level      = 0.95,
+    detailed        = TRUE
+  )
+
+posthoc_rt
+exp(posthoc_rt$estimate)
+
+learning_rt_df %>% 
+  group_by(cond) %>% 
+  summarise(
+    n          = n(),
+    geo_meanRT = exp(mean(mean_logRT)),     # transform
+    sd_logRT   = sd(mean_logRT),
+    sem_logRT  = sd_logRT / sqrt(n),
+    .groups    = "drop"
+  )
+
+
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+
+# ANOVA table
+write.csv(anov_rt$ANOVA, file.path(output_dir, "LE_RT_ANOVA.csv"), row.names = FALSE)
+
+posthoc_rt_save <- posthoc_rt %>%
+  mutate(
+    exp_estimate = exp(estimate)
+  )
+
+write.csv(posthoc_rt_save, file.path(output_dir, "LE_RT_Posthoc_Bonferroni.csv"), row.names = FALSE)
+
+# 3. Descriptive statistics
+learning_rt_summary <- learning_rt_df %>% 
+  group_by(cond) %>% 
+  summarise(
+    n          = n(),
+    geo_meanRT = exp(mean(mean_logRT)),
+    sd_logRT   = sd(mean_logRT),
+    sem_logRT  = sd_logRT / sqrt(n),
+    .groups    = "drop"
+  )
+
+write.csv(learning_rt_summary, file.path(output_dir, "LE_RT_Descriptives.csv"), row.names = FALSE)
+
+print(learning_rt_summary)
+print(posthoc_rt_save)
+
+```
+
+
+# Shapiro results
+```{r}
+shapiro_results_corr
+
+```
+
+# 3. Accuracy (LE, ES, EE) + repeated measures ANOVA
+```{r}
+
+# summary of rmANOVA
+anova_results <- accuracy_df %>%
+  anova_test(dv = Mean_Accuracy, wid = sub_id, within = phase)
+anova_table <- get_anova_table(anova_results)
+
+#phase + colour
+accuracy_df <- accuracy_df %>%
+  mutate(phase = factor(phase, levels = c("LE", "ES", "EE")))
+
+phase_colors <- c("EE" = "deepskyblue4", "ES" = "darkorchid4", "LE" = "rosybrown4")
+
+plot_df <- accuracy_df %>%
+  group_by(sub_id, phase) %>%
+  summarise(Mean_Accuracy = mean(Mean_Accuracy), .groups = "drop") %>%
+  mutate(
+    phase_num = as.numeric(factor(phase, levels = c("LE", "ES", "EE"))),
+    jittered_x = phase_num + runif(n(), -0.1, 0.1)
+  )
+
+# asterisks
+accuracy_summary <- plot_df %>%
+  group_by(phase) %>%
+  summarise(mean_accuracy = mean(Mean_Accuracy), .groups = "drop")
+# plot with horizontal grid
+accuracy_plot <- ggplot() +
+  geom_boxplot(data = plot_df,aes(x = phase, y = Mean_Accuracy, fill = phase),width = 0.5, alpha = 0.7) +
+  geom_line(data = plot_df,aes(x = jittered_x, y = Mean_Accuracy, group = sub_id),color = "black", alpha = 0.05) +
+  geom_point(data = plot_df,aes(x = jittered_x, y = Mean_Accuracy),color = "black", size = 2, alpha = 0.3) +
+  geom_text(data = accuracy_summary,aes(x = phase, y = mean_accuracy, label = "*"),color = "red", size = 10, fontface = "bold") +
+  scale_fill_manual(values = phase_colors) +
+  labs(
+    title = "Mean Accuracy Across Phases",
+    x     = "Phase",
+    y     = "Mean Accuracy (%)"
+  ) +
+  theme_minimal(base_size = 14) +
+  scale_y_continuous(
+    breaks = seq(0.4, 1, by = 0.2),
+    limits = c(0.4, 1),# 0, 0.5, 1.0, 1.5, 2.0
+  ) +
+  theme(
+    panel.grid.major.y = element_line(color = "gray80", size = 0.2),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.ticks.x       = element_line(color = "black"),
+    axis.ticks.y       = element_blank(),
+    axis.ticks.length  = unit(4, "pt"),
+    axis.line          = element_blank(),
+    plot.title         = element_text(size = 18),
+    axis.title.x       = element_text(size = 18),
+    axis.title.y       = element_text(size = 18),
+    axis.text.x        = element_text(size = 18,  color = "black"),
+    axis.text.y        = element_text(size = 18, color = "black")
+  )
+
+accuracy_plot
+
+fig_out <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/Study2_Mean_Acc_LE_ES_EE.pdf"
+ggsave(filename = fig_out, plot = accuracy_plot, width = 4, height = 4, dpi = 300)
+ggsave(filename = sub("\\.pdf$", ".png", fig_out), plot = accuracy_plot, width = 4, height = 4, dpi = 300)
+
+anova_results %>% get_anova_table()
+
+anova_afex <- aov_ez(id = "sub_id", dv = "Mean_Accuracy", within = "phase", data = accuracy_df)
+summary(anova_afex)
+
+accuracy_summary <- accuracy_df %>%
+  group_by(phase) %>%
+  summarise(mean_accuracy = mean(Mean_Accuracy),sd_accuracy = sd(Mean_Accuracy),n = n(),sem_accuracy = sd_accuracy / sqrt(n))
+
+print(accuracy_summary)
+anova_table
+
+
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+
+anova_table <- get_anova_table(anova_results)
+
+write.csv(anova_table, file.path(output_dir, "Study2_Accuracy_Phase_ANOVA.csv"), row.names = FALSE)
+
+accuracy_summary <- accuracy_df %>%
+  group_by(phase) %>%
+  summarise(
+    n = n(),
+    mean_accuracy = mean(Mean_Accuracy, na.rm = TRUE),
+    sd_accuracy = sd(Mean_Accuracy, na.rm = TRUE),
+    sem_accuracy = sd_accuracy / sqrt(n),
+    .groups = "drop"
+  )
+
+write.csv(accuracy_summary, file.path(output_dir, "Study2_Accuracy_Phase_Descriptives.csv"), row.names = FALSE)
+
+
+# Bonferroni post hoc tests
+posthoc_results <- accuracy_df %>%
+  pairwise_t_test(Mean_Accuracy ~ phase, paired = TRUE, p.adjust.method = "bonferroni", detailed = TRUE)
+
+posthoc_results
+names(posthoc_results)
+
+posthoc_results %>% select(group1, group2, p.adj)
+
+wide_df <- accuracy_df %>%
+  pivot_wider(id_cols = sub_id,names_from  = phase,values_from = Mean_Accuracy)
+
+cohen.d(wide_df$LE, wide_df$ES, paired = TRUE)  # LE vs ES
+cohen.d(wide_df$LE, wide_df$EE, paired = TRUE)  # LE vs EE
+cohen.d(wide_df$ES, wide_df$EE, paired = TRUE)  # ES vs EE
+
+
+write.csv(posthoc_results, file.path(output_dir, "Study2_Accuracy_Phase_Posthoc_Bonferroni.csv"), row.names = FALSE)
+
+
+wide_df <- accuracy_df %>%
+  select(
+    sub_id,
+    phase,
+    Mean_Accuracy
+  ) %>%
+  pivot_wider(
+    id_cols = sub_id,
+    names_from = phase,
+    values_from = Mean_Accuracy
+  )
+
+
+d_LE_ES <- effectsize::cohens_d(
+  wide_df$LE,
+  wide_df$ES,
+  paired = TRUE
+)
+
+d_LE_EE <- effectsize::cohens_d(
+  wide_df$LE,
+  wide_df$EE,
+  paired = TRUE
+)
+
+d_ES_EE <- effectsize::cohens_d(
+  wide_df$ES,
+  wide_df$EE,
+  paired = TRUE
+)
+
+
+#table
+effect_sizes <- bind_rows(
+  
+  as.data.frame(d_LE_ES) %>%
+    mutate(Comparison = "LE vs ES"),
+  
+  as.data.frame(d_LE_EE) %>%
+    mutate(Comparison = "LE vs EE"),
+  
+  as.data.frame(d_ES_EE) %>%
+    mutate(Comparison = "ES vs EE")
+  
+) %>%
+  select(
+    Comparison,
+    everything()
+  )
+
+write.csv(effect_sizes, file.path(output_dir, "Study2_Accuracy_Phase_EffectSizes.csv"), row.names = FALSE)
+
+```
+
+# Accuracy comparison between ES and EE
+
+```{r}
+
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+
+phase_colors <- c("ES" = "darkorchid4", "EE" = "deepskyblue4")
+
+# Participant-level accuracy in ES and EE
+plot_df <- accuracy_df %>%
+  filter(phase %in% c("ES", "EE"), !is.na(Mean_Accuracy)) %>%
+  group_by(sub_id, phase) %>%
+  summarise(Mean_Accuracy = mean(Mean_Accuracy), .groups = "drop") %>%
+  group_by(sub_id) %>%
+  filter(n() == 2) %>%
+  ungroup() %>%
+  mutate(phase = factor(phase, levels = c("ES", "EE")))
+
+# Group means, SD and 95% confidence intervals
+accuracy_summary <- plot_df %>%
+  group_by(phase) %>%
+  summarise(
+    n = n(),
+    mean_accuracy = mean(Mean_Accuracy),
+    sd_accuracy = sd(Mean_Accuracy),
+    ci_low = t.test(Mean_Accuracy)$conf.int[1],
+    ci_high = t.test(Mean_Accuracy)$conf.int[2],
+    .groups = "drop"
+  )
+
+# Paired t-test and effect size
+wide_df <- plot_df %>%
+  pivot_wider(names_from = phase, values_from = Mean_Accuracy)
+
+accuracy_test <- t.test(wide_df$ES, wide_df$EE, paired = TRUE)
+effect_size <- effectsize::cohens_d(wide_df$ES, wide_df$EE, paired = TRUE)
+
+# Consistent participant jitter across phases
+set.seed(123)
+offsets <- tibble(sub_id = wide_df$sub_id,
+                  offset = runif(nrow(wide_df), -0.1, 0.1))
+
+plot_df <- plot_df %>%
+  left_join(offsets, by = "sub_id") %>%
+  mutate(phase_num = as.numeric(phase),
+         jittered_x = phase_num + offset)
+
+# Boxplot
+accuracy_plot <- ggplot() +
+  geom_boxplot(data = plot_df,
+               aes(x = phase_num, y = Mean_Accuracy, fill = phase, group = phase),
+               width = 0.5, outlier.shape = NA) +
+  geom_line(data = plot_df,
+            aes(x = jittered_x, y = Mean_Accuracy, group = sub_id),
+            color = "black", alpha = 0.05) +
+  geom_point(data = plot_df,
+             aes(x = jittered_x, y = Mean_Accuracy),
+             color = "black", size = 2, alpha = 0.3) +
+  geom_text(data = accuracy_summary,
+            aes(x = as.numeric(phase), y = mean_accuracy, label = "*"),
+            color = "red", size = 10, fontface = "bold") +
+  scale_fill_manual(values = phase_colors) +
+  scale_x_continuous(breaks = 1:2, labels = c("ES", "EE")) +
+  scale_y_continuous(breaks = seq(0.4, 1, 0.2),
+                     labels = scales::label_percent(accuracy = 1)) +
+  coord_cartesian(ylim = c(0.4, 1)) +
+  labs(title = "Accuracy",
+       x = "Phase", y = "Accuracy (%)") +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.major.y = element_line(color = "gray80", linewidth = 0.2),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_line(color = "black"),
+    axis.ticks.y = element_blank(),
+    axis.ticks.length = unit(4, "pt"),
+    axis.line = element_blank(),
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 18, color = "black"),
+    legend.position = "none"
+  )
+
+print(accuracy_plot)
+
+# Save figures
+fig_out <- file.path(output_dir, "Study2_Mean_Acc_ES_EE.pdf")
+ggsave(fig_out, accuracy_plot, width = 3, height = 3.5, dpi = 300)
+ggsave(sub("\\.pdf$", ".png", fig_out),
+       accuracy_plot, width = 3, height = 3.5, dpi = 300)
+
+# Save statistical results
+capture.output({
+  cat("Study 2: Accuracy comparison between ES and EE\n\n")
+  cat("Participants:", nrow(wide_df), "\n\n")
+  cat("Descriptive statistics (mean, SD, 95% CI)\n")
+  print(accuracy_summary)
+  cat("\nPaired t-test (ES - EE)\n")
+  print(accuracy_test)
+  cat("\nPaired Cohen's d\n")
+  print(effect_size)
+}, file = file.path(results_dir, "Study2_Accuracy_ES_EE_Results.txt"))
+
+write.csv(accuracy_summary,
+          file.path(results_dir, "Study2_Accuracy_ES_EE_Descriptives.csv"),
+          row.names = FALSE)
+
+# ES vs EE accuracy: trial-level binomial GLMM
+
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+
+acc_trials <- data_filt %>%
+  filter(phase %in% c("ES", "EE"), !is.na(corr)) %>%
+  mutate(phase = factor(phase, levels = c("EE", "ES")))
+
+# keep participants represented in both phases
+valid_subs <- acc_trials %>%
+  distinct(sub_id, phase) %>%
+  count(sub_id, name = "n_phases") %>%
+  filter(n_phases == 2) %>%
+  pull(sub_id)
+
+acc_trials <- acc_trials %>% filter(sub_id %in% valid_subs)
+stopifnot(all(acc_trials$corr %in% c(0, 1)))
+
+# trial-level accuracy model
+acc_glmm <- glmer(
+  corr ~ phase + (1 | sub_id),
+  data = acc_trials,
+  family = binomial(link = "logit"),
+  control = glmerControl(optimizer = "bobyqa")
+)
+
+# model-estimated accuracy by phase
+acc_emm <- emmeans(acc_glmm, ~ phase)
+
+# ES vs EE: log-odds contrast, odds ratio and 95% CI
+acc_contrast <- contrast(acc_emm, list("ES / EE" = c(-1, 1)))
+
+acc_probabilities <- summary(acc_emm, type = "response",
+                             infer = c(TRUE, TRUE))
+acc_comparison <- summary(acc_contrast, type = "response",
+                          infer = c(TRUE, TRUE))
+
+# save full results
+capture.output({
+  cat("study 2: ES vs EE accuracy - binomial GLMM\n\n")
+  cat("participants:", n_distinct(acc_trials$sub_id), "\n")
+  cat("trials:", nrow(acc_trials), "\n\n")
+  cat("trials per phase\n")
+  print(count(acc_trials, phase))
+
+  cat("\nmodel: corr ~ phase + (1 | sub_id)\n")
+  print(summary(acc_glmm))
+
+  cat("\nmodel-estimated accuracy (95% CI)\n")
+  print(acc_probabilities)
+
+  cat("\nES vs EE: odds ratio (95% CI)\n")
+  print(acc_comparison)
+
+  cat("\nmodel diagnostics\n")
+  cat("singular fit:", isSingular(acc_glmm), "\n")
+}, file = file.path(results_dir, "Study2_Accuracy_ES_EE_GLMM.txt"))
+
+write.csv(as.data.frame(acc_comparison),
+          file.path(results_dir, "Study2_Accuracy_ES_EE_GLMM_Contrast.csv"),
+          row.names = FALSE)
+```
+
+
+# Median Accuracy 
+```{r}
+accuracy_median_summary <- accuracy_df %>%
+  dplyr::group_by(phase) %>%
+  dplyr::summarise(
+    median_accuracy = median(Mean_Accuracy),
+    n = dplyr::n()
+  )
+
+print(accuracy_median_summary)
+
+```
+
+# Accuracy just between ES & EE
+
+```{r}
+es_ee_data <- accuracy_df %>%
+  filter(phase %in% c("ES", "EE") & !sub_id %in% excluded_subs)
+
+# Normality check, not sure if I should test these independently, but here we go
+shapiro_es <- shapiro.test(es_ee_data %>% filter(phase == "ES") %>% pull(Mean_Accuracy))
+shapiro_ee <- shapiro.test(es_ee_data %>% filter(phase == "EE") %>% pull(Mean_Accuracy))
+shapiro_es
+shapiro_ee
+
+#  if normal ttest, else wilcox. signed rank test
+if (shapiro_es$p.value > 0.05 & shapiro_ee$p.value > 0.05) {
+  test_res <- es_ee_data %>%
+    pairwise_t_test(Mean_Accuracy ~ phase, paired = TRUE, p.adjust.method = "bonferroni")
+} else {
+  test_res <- es_ee_data %>%
+    wilcox_test(Mean_Accuracy ~ phase, paired = TRUE, p.adjust.method = "bonferroni")
+}
+
+test_res
+```
+
+# 5. Above chance performance ? 
+
+```{r}
+phases<- c("LE", "ES", "EE")
+excluded_subs <- c(6,14)  
+
+data_filt <- data %>%
+  filter(phase %in% phases & !sub_id %in% excluded_subs)
+
+# mean accuracy per participant and phase
+accuracy_df <- data_filt %>%
+  group_by(sub_id, phase) %>%
+  summarise(Mean_Accuracy = mean(corr), .groups = "drop")
+accuracy_df <- accuracy_df %>%
+  mutate(phase = factor(phase, levels = c("LE", "ES", "EE")))
+
+# One-sample t-tests for each phase against chance level
+t_test_results <- accuracy_df %>%
+  group_by(phase) %>%
+  summarise(
+    mean_accuracy = mean(Mean_Accuracy),
+    se = sd(Mean_Accuracy) / sqrt(n()),
+    t_statistic = t.test(Mean_Accuracy, mu = 0.5)$statistic,
+    df = t.test(Mean_Accuracy, mu = 0.5)$parameter,
+    p_value = t.test(Mean_Accuracy, mu = 0.5)$p.value
+  ) %>%
+  mutate(
+    significance = case_when(
+      p_value < 0.001 ~ "***",
+      p_value < 0.01 ~ "**",
+      p_value < 0.05 ~ "*",
+      TRUE ~ "n.s."
+    )
+  )
+print(t_test_results)
+
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav"
+
+
+write.csv(t_test_results, file.path(output_dir, "Study2_Accuracy_AboveChance_OneSampleTTests.csv"), row.names = FALSE)
+```
+
+# 6. Reaction Time (LE, ES, EE)
+
+```{r}
+# get mean rt per participant and phase
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+
+
+rt_df <- data_filt %>%
+  group_by(sub_id, phase) %>%
+  summarise(Mean_RT = mean(rtime), .groups = "drop")
+
+# outliers chekc
+outliers <- rt_df %>%
+  group_by(phase) %>%
+  identify_outliers(Mean_RT)
+rt_df <- rt_df %>%
+  filter(!(sub_id %in% outliers$sub_id[outliers$is.extreme]))
+
+# normality assumption? - unnecessary we log trans anyways
+shapiro_results_rt <- rt_df %>%
+  group_by(phase) %>%
+  summarise(Shapiro_p = shapiro.test(Mean_RT)$p.value)
+shapiro_results_rt
+
+# mean, sd, sem
+rt_summary <- rt_df %>%
+  group_by(phase) %>%
+  summarise(
+    mean_rt = round(mean(Mean_RT), 3),
+    sd_rt = round(sd(Mean_RT), 3),
+    n = n(),
+    sem_rt = round(sd_rt / sqrt(n), 3),
+    .groups = "drop"
+  )
+
+print(rt_summary)
+
+write.csv(rt_summary, file.path(output_dir, "Study2_RT_Phase_Descriptives.csv"), row.names = FALSE)
+
+```
+
+```{r}
+aov_rt <- aov_ez(id = "sub_id", dv = "Mean_RT", within = "phase", data = rt_df)
+
+summary(aov_rt) 
+
+```
+
+```{r}
+rt_df$log_rt <- log(rt_df$Mean_RT)
+aov_log_rt <- aov_ez(id = "sub_id", dv = "log_rt", within = "phase", data = rt_df)
+summary(aov_log_rt)
+
+emm <- emmeans(aov_log_rt, ~ phase)
+pairs(emm, adjust = "bonferroni")
+eta_squared(aov_log_rt, partial = TRUE) 
+
+
+safe_t_to_d <- possibly(
+  function(t, df) {
+    d_obj <- t_to_d(t = t, df = df, paired = TRUE)
+    as.numeric(d_obj[[1]])  # numeric estimate
+  }
+)
+
+```
+
+# Additional lmer with log transformed RT
+
+```{r}
+# RT across phases:
+# participant-level Wilcoxon + trial-level LMM
+
+output_file <- paste0("D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/Study2_RT_Phase_AllResults.txt")
+
+
+# Participant-level Wilcoxon tests
+
+wilcoxon_results <- rt_df %>%
+  pairwise_wilcox_test(
+    Mean_RT ~ phase,
+    paired = TRUE,
+    p.adjust.method = "bonferroni"
+  )
+
+
+
+# Trial-level RT data
+
+rt_outlier_subs <- outliers %>%
+  filter(is.extreme) %>%
+  pull(sub_id) %>%
+  unique()
+
+rt_trials <- data_filt %>%
+  filter(
+    phase %in% c("LE", "ES", "EE"),
+    !sub_id %in% rt_outlier_subs,
+    !is.na(rtime),
+    rtime > 0
+  ) %>%
+  mutate(
+    phase = factor(
+      phase,
+      levels = c("LE", "ES", "EE")
+    ),
+    logRT = log(rtime)
+  )
+
+
+
+# linear mixed model - trial level
+
+
+lme_model <- lmer(logRT ~ phase + (1 | sub_id), data = rt_trials)
+
+# Estimated  means + Bonferroni comparisons + satterthwaite with limit
+
+emm_results <- emmeans(lme_model, ~ phase, lmer.df = "satterthwaite", lmerTest.limit = nrow(rt_trials) + 1)
+
+emm_pairwise <- pairs(
+  emm_results,
+  adjust = "bonferroni"
+)
+
+emm_table <- as.data.frame(
+  summary(
+    emm_results,
+    infer = c(TRUE, TRUE)
+  )
+)
+
+# find whichever CI names emmeans has
+ci_low  <- if ("lower.CL" %in% names(emm_table)) "lower.CL" else "asymp.LCL"
+ci_high <- if ("upper.CL" %in% names(emm_table)) "upper.CL" else "asymp.UCL"
+
+emm_table <- emm_table %>%
+  mutate(
+    geometric_mean_RT_seconds = exp(emmean),
+    CI_low_seconds  = exp(.data[[ci_low]]),
+    CI_high_seconds = exp(.data[[ci_high]])
+  )
+
+
+# pairwise phase comparisons
+pairwise_table <- as.data.frame(
+  summary(
+    emm_pairwise,
+    infer = c(TRUE, TRUE)
+  )
+)
+
+ci_low_pair  <- if ("lower.CL" %in% names(pairwise_table)) "lower.CL" else "asymp.LCL"
+ci_high_pair <- if ("upper.CL" %in% names(pairwise_table)) "upper.CL" else "asymp.UCL"
+
+pairwise_table <- pairwise_table %>%
+  mutate(
+    RT_ratio = exp(estimate),
+    ratio_CI_low  = exp(.data[[ci_low_pair]]),
+    ratio_CI_high = exp(.data[[ci_high_pair]])
+  )
+
+
+# save everything to one text file
+output_file <- paste0("D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/Study2_RT_Phase_AllResults.txt")
+
+capture.output({
+
+  cat("Study 2 - reaction time across LE, ES, and EE\n")
+  cat("============================================================\n\n")
+
+  cat("Sample information\n")
+  cat("------------------------------------------------------------\n")
+  cat("Number of trial-level observations:", nrow(rt_trials), "\n")
+  cat("Number of participants:", n_distinct(rt_trials$sub_id), "\n")
+  cat(
+    "Participants removed as extreme RT outliers:",
+    paste(rt_outlier_subs, collapse = ", "),
+    "\n\n"
+  )
+
+  cat("Participant-level Wilcoxon tests\n")
+  cat("Bonferroni corrected\n")
+  cat("------------------------------------------------------------\n")
+  print(wilcoxon_results)
+
+  cat("\n\nTrial-level linear mixed model\n")
+  cat("Outcome: log reaction time\n")
+  cat("Model: logRT ~ phase + (1 | sub_id)\n")
+  cat("------------------------------------------------------------\n")
+  print(summary(lme_model))
+
+  cat("\n\nEstimated marginal means\n")
+  cat("Geometric mean RTs are back-transformed to seconds\n")
+  cat("------------------------------------------------------------\n")
+  print(emm_table)
+
+  cat("\n\nPairwise phase comparisons\n")
+  cat("Bonferroni corrected\n")
+  cat("RT ratio = exponentiated log-RT difference\n")
+  cat("------------------------------------------------------------\n")
+  print(pairwise_table)
+
+}, file = output_file)
+```
+
+
+# 7. RT plot between phases
+
+```{r}
+# order
+rt_df <- rt_df %>%
+  mutate(phase = factor(phase, levels = c("LE", "ES", "EE")))
+
+phase_colors <- c("EE" = "deepskyblue4", "ES" = "darkorchid4", "LE" = "rosybrown4")
+
+# summary means for asterisks
+rt_summary <- rt_df %>%
+  group_by(phase) %>%
+  summarise(
+    mean_rt = mean(Mean_RT),
+    .groups = "drop"
+  )
+
+set.seed(123)  
+rt_df <- rt_df %>%
+  mutate(
+    phase_num  = as.numeric(phase),
+    jittered_x = phase_num + runif(n(), -0.1, 0.1)
+  )
+
+# plot
+rt_plot <- ggplot() +
+  geom_boxplot(data = rt_df,aes(x = phase, y = Mean_RT, fill = phase),width = 0.5, alpha = 0.7) +
+  geom_line(data = rt_df,aes(x = jittered_x, y = Mean_RT, group = sub_id),color = "black", alpha = 0.05) +
+  geom_point(data = rt_df,aes(x = jittered_x, y = Mean_RT),color = "black", size = 2, alpha = 0.3) +
+  geom_text(data = rt_summary,aes(x = phase, y = mean_rt, label = "*"),color = "red", size = 13, fontface = "bold") +
+  scale_fill_manual(values = phase_colors) +
+  scale_y_continuous(breaks = seq(0, ceiling(max(rt_df$Mean_RT)*2)/2, by = 0.5)) +
+  labs(
+    title = "Mean Reaction Time Across Phases",
+    x     = "Phase",
+    y     = "Mean RT (seconds)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.major.y  = element_line(color = "gray80", size = 0.2),
+    panel.grid.major.x  = element_blank(),
+    panel.grid.minor    = element_blank(),
+    axis.ticks.x        = element_line(color = "black"),
+    axis.ticks.y        = element_blank(),
+    axis.ticks.length   = unit(4, "pt"),
+    axis.line           = element_blank(),
+    plot.title          = element_text(size = 18),
+    axis.title.x        = element_text(size = 18),
+    axis.title.y        = element_text(size = 18),
+    axis.text.x         = element_text(size = 18, color = "black"),
+    axis.text.y         = element_text(size = 18, color = "black")
+  )
+
+fig_out <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/Study2_Mean_rt_LE_ES_EE.pdf"
+ggsave(filename = fig_out, plot = rt_plot, width = 4, height = 4, dpi = 300)
+ggsave(filename = sub("\\.pdf$", ".png", fig_out), plot = rt_plot, width = 4, height = 4, dpi = 300)
+
+rt_plot
+
+```
+# RT between ES vs EE
+
+```{r}
+# Reaction times in ES vs EE
+
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+
+phase_colors <- c("ES" = "darkorchid4", "EE" = "deepskyblue4")
+
+# Participant-level RTs, keeping participants with both phases
+plot_df <- rt_df %>%
+  filter(phase %in% c("ES", "EE"), is.finite(Mean_RT)) %>%
+  group_by(sub_id, phase) %>%
+  summarise(Mean_RT = mean(Mean_RT), .groups = "drop") %>%
+  group_by(sub_id) %>%
+  filter(n() == 2) %>%
+  ungroup() %>%
+  mutate(phase = factor(phase, levels = c("ES", "EE")))
+
+# Descriptive statistics and 95% confidence intervals
+rt_summary <- plot_df %>%
+  group_by(phase) %>%
+  summarise(n = n(), mean_rt = mean(Mean_RT), sd_rt = sd(Mean_RT),
+            ci_low = t.test(Mean_RT)$conf.int[1],
+            ci_high = t.test(Mean_RT)$conf.int[2], .groups = "drop")
+
+# Paired t-test and effect size
+wide_df <- plot_df %>%
+  pivot_wider(names_from = phase, values_from = Mean_RT)
+
+rt_test <- t.test(wide_df$ES, wide_df$EE, paired = TRUE)
+effect_size <- effectsize::cohens_d(wide_df$ES, wide_df$EE, paired = TRUE)
+
+# Consistent jitter across phases for each participant
+set.seed(123)
+offsets <- tibble(sub_id = wide_df$sub_id,
+                  offset = runif(nrow(wide_df), -0.1, 0.1))
+
+plot_df <- plot_df %>%
+  left_join(offsets, by = "sub_id") %>%
+  mutate(phase_num = as.numeric(phase), jittered_x = phase_num + offset)
+
+# Plot
+rt_plot <- ggplot() +
+  geom_boxplot(data = plot_df, aes(x = phase_num, y = Mean_RT, fill = phase, group = phase),
+               width = 0.5, outlier.shape = NA) +
+  geom_line(data = plot_df, aes(x = jittered_x, y = Mean_RT, group = sub_id),
+            color = "black", alpha = 0.05) +
+  geom_point(data = plot_df, aes(x = jittered_x, y = Mean_RT),
+             color = "black", size = 2, alpha = 0.3) +
+  geom_text(data = rt_summary, aes(x = as.numeric(phase), y = mean_rt, label = "*"),
+            color = "red", size = 13, fontface = "bold") +
+  scale_fill_manual(values = phase_colors) +
+  scale_x_continuous(breaks = 1:2, labels = c("ES", "EE")) +
+  scale_y_continuous(breaks = seq(0, ceiling(max(plot_df$Mean_RT) * 2) / 2, by = 0.5)) +
+  labs(title = "RT Distribution",
+       x = "Phase", y = "RT (seconds)") +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.major.y = element_line(color = "gray80", linewidth = 0.2),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_line(color = "black"),
+    axis.ticks.y = element_blank(),
+    axis.ticks.length = unit(4, "pt"),
+    axis.line = element_blank(),
+    plot.title = element_text(size = 18),
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 18, color = "black"),
+    legend.position = "none"
+  )
+
+print(rt_plot)
+
+# Save figures
+fig_out <- file.path(output_dir, "Study2_Mean_RT_ES_EE.pdf")
+ggsave(fig_out, rt_plot, width = 3, height = 3.5, dpi = 300)
+ggsave(sub("\\.pdf$", ".png", fig_out), rt_plot, width = 3, height = 3.5, dpi = 300)
+
+# Save statistical results
+capture.output({
+  cat("Study 2: Reaction times in ES vs EE\n\n")
+  cat("Participants:", nrow(wide_df), "\n\n")
+  cat("Descriptive statistics (mean, SD, 95% CI)\n")
+  print(rt_summary)
+  cat("\nPaired t-test (ES - EE)\n")
+  print(rt_test)
+  cat("\nPaired Cohen's d\n")
+  print(effect_size)
+}, file = file.path(results_dir, "Study2_RT_ES_EE_Results.txt"))
+
+write.csv(rt_summary,
+          file.path(results_dir, "Study2_RT_ES_EE_Descriptives.csv"),
+          row.names = FALSE)
+```
+
+
+
+
+# 8. Accuracy E vs S choices (ES phase) + Boxplot
+
+```{r}
+# Filter ES phase
+phases<- c("LE", "ES", "EE")
+excluded_subs <- c(6, 14)   
+
+data_filt <- data %>%
+  filter(phase %in% phases & !sub_id %in% excluded_subs)
+
+es_data <- data_filt %>%
+  filter(
+    phase == "ES",
+    chosen_stimulus %in% c("E", "S")
+  ) %>%
+  mutate(
+    choice_type = factor(
+      chosen_stimulus,
+      levels = c("E", "S")
+    )
+  )
+
+#mean accuracy
+accuracy_es <- es_data %>%
+  group_by(sub_id, choice_type) %>%
+  summarise(Mean_Accuracy = mean(corr), .groups = "drop")
+
+# group
+mean_points <- accuracy_es %>%
+  group_by(choice_type) %>%
+  summarise(
+    mean_val = mean(Mean_Accuracy),
+    .groups = "drop"
+  )
+
+# Normality check
+shapiro_e <- shapiro.test(accuracy_es %>% filter(choice_type == "E") %>% pull(Mean_Accuracy))
+shapiro_s <- shapiro.test(accuracy_es %>% filter(choice_type == "S") %>% pull(Mean_Accuracy))
+
+shapiro_e
+shapiro_s
+
+# normality assumption hold
+if (shapiro_e$p.value > 0.05 & shapiro_s$p.value > 0.05) {
+  test_accuracy <- accuracy_es %>%
+    pairwise_t_test(Mean_Accuracy ~ choice_type, paired = TRUE, p.adjust.method = "bonferroni")
+} else {
+  test_accuracy <- accuracy_es %>%
+    wilcox_test(Mean_Accuracy ~ choice_type, paired = TRUE, p.adjust.method = "bonferroni")
+}
+
+test_accuracy
+
+#plot
+custom_colors <- c("S" = "darkorchid", "E" = "deepskyblue")
+
+set.seed(123)  # for reproducible jitter
+accuracy_es <- accuracy_es %>%
+  mutate(jittered_x = as.numeric(factor(choice_type)) + runif(n(), min = -0.1, max = 0.1))
+
+acc_es_plot <- ggplot() +
+  geom_boxplot(data = accuracy_es,aes(x = choice_type, y = Mean_Accuracy, fill = choice_type),width = 0.5) +
+  geom_line(data = accuracy_es,aes(x = jittered_x, y = Mean_Accuracy, group = sub_id),color = "black", alpha = 0.05) +
+  geom_point(data = accuracy_es,aes(x = jittered_x, y = Mean_Accuracy),color = "black", size = 2, alpha = 0.3) +
+  geom_text(data = mean_points,aes(x = choice_type, y = mean_val, label = "*"),color = "red", size = 10, fontface = "bold") +
+  scale_fill_manual(values = custom_colors) +
+  labs(
+    title = "Choice Accuracy",
+    x     = "Choice Type",
+    y     = "Accuracy (%)",
+    fill  = "Choice Type"
+  ) +
+  scale_y_continuous(
+    breaks = seq(0.7, 1, by = 0.1),
+    labels = scales::label_percent(accuracy = 1),
+    limits = c(0.7, 1)
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.major.y = element_line(color = "gray80", size = 0.2),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.ticks = element_line(color = "black"),
+    axis.line  = element_blank(),
+    plot.title = element_text(size = 18),
+    axis.title.x = element_text(size = 18),
+    axis.title.y = element_text(size = 18, color = "black"),
+    axis.text.x  = element_text(size = 18, color = "black"),
+    axis.text.y  = element_text(size = 18, color = "black"),
+    legend.text  = element_text(size = 18),
+    legend.title = element_text(size = 18),
+    legend.position = "none"
+
+  )
+
+fig_out <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/Study2_Mean_Acc_E_S_options.pdf"
+
+ggsave(filename = fig_out, plot = acc_es_plot, width = 3, height = 3, dpi = 300)
+ggsave(filename = sub("\\.pdf$", ".png", fig_out), plot = acc_es_plot, width = 3, height = 3, dpi = 300)
+
+acc_es_plot
+
+accuracy_es %>%
+  group_by(choice_type) %>%
+  summarise(mean_acc = mean(Mean_Accuracy),sem_acc = sd(Mean_Accuracy) / sqrt(n()))
+
+t.test(
+  x = accuracy_es %>% filter(choice_type == "E") %>% pull(Mean_Accuracy),
+  y = accuracy_es %>% filter(choice_type == "S") %>% pull(Mean_Accuracy),
+  paired = TRUE)
+
+e_values <- accuracy_es %>% filter(choice_type == "E") %>% pull(Mean_Accuracy)
+s_values <- accuracy_es %>% filter(choice_type == "S") %>% pull(Mean_Accuracy)
+
+effect_size <- cohen.d(e_values, s_values, paired = TRUE)
+print(effect_size)
+
+```
+
+# Glmer Accuracy E vs S choices (ES phase)
+```{r}
+
+# trial-level data for ES phase
+es_data_glm <- es_data %>%
+  filter(!is.na(corr)) %>%
+  mutate(choice_type = factor(choice_type, levels = c("S", "E")))
+
+# logistic mixed model
+m1 <- glmer(corr ~ choice_type + (1 | sub_id),data = es_data_glm,family = binomial(link = "logit"),control = glmerControl(optimizer = "bobyqa"))
+
+summary(m1)
+
+# pairwise comparison
+emmeans(m1, pairwise ~ choice_type, type = "response")
+
+output_file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/Study2_ES_Accuracy_EvsS_GLMM.txt"
+
+capture.output({
+
+  cat("========================================\n")
+  cat("Study 2 - ES Accuracy: E VS S GLMM - trial-level mixed model\n")
+  cat("========================================\n\n")
+
+  cat("MODEL SUMMARY\n")
+  cat("----------------------------------------\n")
+  print(summary(m1))
+
+  cat("\n\nESTIMATED MARGINAL MEANS\n")
+  cat("----------------------------------------\n")
+  print(
+    emmeans(
+      m1,
+      ~ choice_type,
+      type = "response"
+    )
+  )
+
+  cat("\n\nPAIRWISE COMPARISON: E VS S\n")
+  cat("----------------------------------------\n")
+  print(
+    emmeans(
+      m1,
+      pairwise ~ choice_type,
+      type = "response"
+    )
+  )
+
+}, file = output_file)
+
+```
+
+
+# Median accuracy per choice
+```{r}
+accuracy_es %>%
+  group_by(choice_type) %>%
+  summarise(
+    median_acc = median(Mean_Accuracy),
+    .groups = "drop"
+  )
+
+```
+
+# Mean accuracy per choice 
+```{r}
+accuracy_summary <- accuracy_es %>%
+  group_by(choice_type) %>%
+  summarise(
+    Mean = round(mean(Mean_Accuracy), 3),
+    SD = round(sd(Mean_Accuracy), 3),
+    .groups = "drop"
+  )
+accuracy_summary
+
+```
+
+# 9. Mean RT per choice + (ES phase) + Boxplot
+
+```{r}
+output_file <- paste0("D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/Study2_ES_RT_EvsS_AllResults.txt")
+
+es_data <- data_filt %>%
+  filter(
+    phase == "ES",
+    chosen_stimulus %in% c("E", "S"),
+    !is.na(rtime),
+    rtime > 0
+  ) %>%
+  mutate(
+    choice_type = factor(
+      chosen_stimulus,
+      levels = c("S", "E")
+    ),
+    logRT = log(rtime)
+  )
+
+
+
+# mean RTs for descriptives and plot
+
+
+rtime_es <- es_data %>%
+  group_by(sub_id, choice_type) %>%
+  summarise(
+    Mean_rtime = mean(rtime, na.rm = TRUE),
+    Mean_logRT = mean(logRT, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+
+
+# participant-level paired t-test
+
+rtime_wide <- rtime_es %>%
+  select(sub_id, choice_type, Mean_logRT) %>%
+  pivot_wider(
+    id_cols = sub_id,
+    names_from = choice_type,
+    values_from = Mean_logRT
+  ) %>%
+  drop_na(E, S)
+
+test_rtime <- t.test(
+  rtime_wide$E,
+  rtime_wide$S,
+  paired = TRUE
+)
+
+
+
+# trial-level mixed model
+# every row here is an individual ES trial
+
+
+lmer_model <- lmer(logRT ~ choice_type + (1 | sub_id), data = es_data)
+
+summary(lmer_model)
+
+
+# ------------------------------------------------------------
+# estimated marginal means and E vs S comparison
+# ------------------------------------------------------------
+
+emm_choice <- emmeans(lmer_model, ~ choice_type)
+
+emm_pairwise <- pairs(emm_choice)
+
+
+# back-transform model-estimated log RTs into seconds
+emm_table <- as.data.frame(
+  summary(
+    emm_choice,
+    infer = c(TRUE, TRUE)
+  )
+)
+
+ci_low  <- if ("lower.CL" %in% names(emm_table)) "lower.CL" else "asymp.LCL"
+ci_high <- if ("upper.CL" %in% names(emm_table)) "upper.CL" else "asymp.UCL"
+
+emm_table <- emm_table %>%
+  mutate(
+    geometric_mean_rt = exp(emmean),
+    ci_low_seconds = exp(.data[[ci_low]]),
+    ci_high_seconds = exp(.data[[ci_high]])
+  )
+
+
+# back-transform E-S contrast into an RT ratio
+pairwise_table <- as.data.frame(
+  summary(
+    emm_pairwise,
+    infer = c(TRUE, TRUE)
+  )
+)
+
+ci_low_pair  <- if ("lower.CL" %in% names(pairwise_table)) "lower.CL" else "asymp.LCL"
+ci_high_pair <- if ("upper.CL" %in% names(pairwise_table)) "upper.CL" else "asymp.UCL"
+
+pairwise_table <- pairwise_table %>%
+  mutate(
+    rt_ratio = exp(estimate),
+    ratio_ci_low = exp(.data[[ci_low_pair]]),
+    ratio_ci_high = exp(.data[[ci_high_pair]])
+  )
+
+
+capture.output({
+
+  cat("Study 2 - ES reaction time for E and S choices\n")
+  cat("============================================================\n\n")
+
+  cat("Sample information\n")
+  cat("------------------------------------------------------------\n")
+  cat("Number of ES trials:", nrow(es_data), "\n")
+  cat("Number of participants:", n_distinct(es_data$sub_id), "\n\n")
+
+  cat("Trials by choice type\n")
+  print(table(es_data$choice_type))
+
+
+  cat("\n\nParticipant-level descriptive statistics\n")
+  cat("------------------------------------------------------------\n")
+
+  print(
+    rtime_es %>%
+      group_by(choice_type) %>%
+      summarise(
+        n = n(),
+        mean_rt = mean(Mean_rtime),
+        sd_rt = sd(Mean_rtime),
+        sem_rt = sd_rt / sqrt(n),
+        .groups = "drop"
+      )
+  )
+
+
+  cat("\n\nParticipant-level paired t-test on mean log RT\n")
+  cat("------------------------------------------------------------\n")
+  print(test_rtime)
+
+
+  cat("\n\nTrial-level linear mixed model\n")
+  cat("Outcome: log reaction time\n")
+  cat("Model: logRT ~ choice_type + (1 | sub_id)\n")
+  cat("Reference category: S\n")
+  cat("------------------------------------------------------------\n")
+  print(summary(lmer_model))
+
+
+  cat("\n\nEstimated marginal means\n")
+  cat("Geometric mean RTs are back-transformed to seconds\n")
+  cat("------------------------------------------------------------\n")
+  print(emm_table)
+
+
+  cat("\n\nE vs S model comparison\n")
+  cat("RT ratio is the exponentiated log-RT difference\n")
+  cat("------------------------------------------------------------\n")
+  print(pairwise_table)
+
+}, file = output_file)
+
+
+colours <- c("S" = "darkorchid", 
+             "E" = "deepskyblue")
+
+mean_points <- rtime_es %>%
+  group_by(choice_type) %>%
+  summarise(mean_val = mean(Mean_rtime), .groups = "drop")
+
+
+
+set.seed(123)  # for reproducibility
+# Jitter by numerical x-position
+rtime_es <- rtime_es %>%
+  mutate(jittered_x = as.numeric(factor(choice_type)) + runif(n(), -0.1, 0.1))
+
+rt_es_plot <- ggplot() +
+  geom_boxplot(data = rtime_es, aes(x = choice_type, y = Mean_rtime, fill = choice_type),width = 0.5) +
+  geom_line(data = rtime_es, aes(x = jittered_x, y = Mean_rtime, group = sub_id),color = "black", alpha = 0.05) +
+  geom_point(data = rtime_es, aes(x = jittered_x, y = Mean_rtime),color = "black", size = 2, alpha = 0.3) +
+  geom_text(data = mean_points,aes(x = choice_type, y = mean_val, label = "*"),size = 13, color = "red", inherit.aes = FALSE) +
+  scale_fill_manual(values = colours) +
+  labs(title = "RT Distribution",
+       x = "Choice Type", y = "RT (seconds)", fill = "Choice Type") +
+  scale_x_discrete(limits = c("E", "S")) +
+  scale_y_continuous(
+    breaks = c(1, 2),
+    labels = scales::label_number(accuracy = 0.1)
+  ) +  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.major.y = element_line(color = "gray80", size = 0.2),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.ticks.x      = element_line(color = "black"),
+    axis.ticks.y      = element_blank(),
+    axis.ticks.length = unit(4, "pt"),
+    axis.line         = element_blank(),
+    plot.title        = element_text(size = 18),
+    axis.title.x      = element_text(size = 18),
+    axis.title.y      = element_text(size = 18, color = "black"),
+    axis.text.x       = element_text(size = 18, color = "black"),
+    axis.text.y       = element_text(size = 18, color = "black"),
+    legend.text       = element_text(size = 18),
+    legend.title      = element_text(size = 18),
+    legend.position = "none"
+  )
+
+
+fig_out <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/Study2_Mean_rt_E_S_options.pdf"
+ggsave(filename = fig_out, plot = rt_es_plot, width = 3, height = 3, dpi = 300)
+ggsave(filename = sub("\\.pdf$", ".png", fig_out), plot = rt_es_plot, width = 3, height = 3, dpi = 300)
+
+rt_es_plot
+
+```
+
+# Median and Men RT per choice
+
+```{r}
+median_rt_by_choice <- es_data %>%
+  group_by(choice_type) %>%
+  summarise(
+    Median_RT = median(rtime, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+median_rt_by_choice
+
+
+mean_rt_by_choice <- es_data %>%
+  group_by(choice_type) %>%
+  summarise(
+    n = sum(!is.na(rtime)),
+    Mean_RT = mean(rtime, na.rm = TRUE),
+    sd_rt = sd(rtime, na.rm = TRUE),
+    sem_rt = sd_rt / sqrt(n),
+    .groups = "drop"
+  )
+
+mean_rt_by_choice
+
+```
+
+# Mean RT cohen's d
+```{r}
+rt_wide <- rtime_es %>%
+  select(sub_id, choice_type, Mean_rtime) %>%
+  pivot_wider(
+    id_cols = sub_id,
+    names_from = choice_type,
+    values_from = Mean_rtime
+  ) %>%
+  drop_na(E, S)
+
+# Paired Cohen's d
+cohens_d_result <- effectsize::cohens_d(
+  x = rt_wide$E,
+  y = rt_wide$S,
+  paired = TRUE
+)
+
+print(cohens_d_result)
+```
+
+
+# ES - p(E vs S) per rtime bin quintile
+
+```{r}
+
+file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+
+excluded_subs <- c(6, 14)  
+
+# participant rt quintiles
+
+rt_dat <- read.csv(file) %>%
+  filter(phase == "ES", !sub_id %in% excluded_subs, !is.na(sub_id),
+         between(rtime, 0.250, 10), !is.na(chose_E), !is.na(chose_S)) %>%
+  group_by(sub_id) %>%
+  mutate(rtime_bin = ntile(rtime, 5)) %>%
+  ungroup() %>%
+  mutate(rtime_bin = factor(rtime_bin, levels = 1:5,
+                           labels = c("0-20%", "20-40%", "40-60%",
+                                      "60-80%", "80-100%")),
+         sub_id = factor(sub_id))
+
+stopifnot(all(rt_dat$chose_E + rt_dat$chose_S == 1))
+
+
+
+# participant means and sem
+
+agg <- rt_dat %>%
+  group_by(sub_id, rtime_bin) %>%
+  summarise(p_E = mean(chose_E), p_S = mean(chose_S), .groups = "drop") %>%
+  pivot_longer(c(p_E, p_S), names_to = "Choice", values_to = "prob") %>%
+  mutate(Choice = factor(Choice, levels = c("p_E", "p_S"),
+                         labels = c("E", "S")))
+
+summary_df <- agg %>%
+  group_by(rtime_bin, Choice) %>%
+  summarise(mean_prob = mean(prob), sem = sd(prob) / sqrt(n()),
+            .groups = "drop")
+
+
+# glmm: rt quintiles and e vs s choice
+
+control <- glmerControl(optimizer = "bobyqa")
+
+model_null <- glmer(chose_E ~ 1 + (1 | sub_id),
+                    data = rt_dat, family = binomial, control = control)
+
+model <- glmer(chose_E ~ rtime_bin + (1 | sub_id),
+               data = rt_dat, family = binomial, control = control)
+
+rt_overall <- anova(model_null, model, test = "Chisq")
+
+emm <- emmeans(model, ~ rtime_bin)
+rt_probs <- as.data.frame(summary(emm, type = "response"))
+
+# e vs s within each bin, holm corrected
+rt_tests <- as.data.frame(test(emm, null = 0, adjust = "none")) %>%
+  mutate(p_holm = p.adjust(p.value, method = "holm"),
+         significance = case_when(
+           p_holm < .001 ~ "***",
+           p_holm < .01 ~ "**",
+           p_holm < .05 ~ "*",
+           TRUE ~ ""
+         ))
+
+print(rt_overall)
+print(rt_probs)
+print(rt_tests)
+
+
+# plot
+
+
+p <- ggplot(summary_df, aes(x = rtime_bin, y = mean_prob, fill = Choice)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7, color = "black", linewidth = 0.5) +
+  geom_errorbar(
+    aes(ymin = mean_prob - sem, ymax = mean_prob + sem),
+    position = position_dodge(width = 0.8),
+    width = 0.2, linewidth = 0.7
+  ) +
+  geom_hline(yintercept = 0.5, linetype = "dotted") +
+  scale_fill_manual(
+    values = c("E" = "deepskyblue", "S" = "darkorchid"),
+    name = "Chosen option"
+  ) +
+  labs(
+    title = "E vs S Choice by RT Quintile",
+    x = "RT quintile (shortest to longest)",
+    y = "Probability (%)"
+  ) +
+  scale_y_continuous(
+    breaks = seq(0.3, 0.7, 0.1),
+    labels = scales::label_percent(accuracy = 1)
+  ) +
+  coord_cartesian(ylim = c(0.30, 0.70)) +
+  theme_minimal(base_size = 15) +
+  theme(
+    legend.position = c(0.85, 0.90),
+    legend.background = element_rect(fill = "white", color = NA),
+    legend.key = element_rect(fill = NA, color = NA),
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 16),
+    axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(color = "black", size = 16),
+    axis.text.y = element_text(color = "black", size = 18),
+    axis.title.x = element_text(size = 18),
+    axis.title.y = element_text(size = 18)
+  )
+
+print(p)
+
+
+
+
+
+fig_base <- file.path(output_dir, "ES_RT_ChoiceQuintiles")
+
+ggsave(paste0(fig_base, ".pdf"), p, width = 5.5, height = 4, bg = "white")
+ggsave(paste0(fig_base, ".png"), p, width = 5.5, height = 4, dpi = 300, bg = "white")
+
+capture.output({
+  cat("ES: choice by rt quintile\n\n")
+
+  cat("sample\n")
+  print(rt_dat %>% summarise(trials = n(), participants = n_distinct(sub_id)))
+
+  cat("\nparticipant-level descriptives (mean +/- sem)\n")
+  print(summary_df)
+
+  cat("\noverall rt-quintile effect\n")
+  print(rt_overall)
+
+  cat("\nglmm summary\n")
+  print(summary(model))
+
+  cat("\nmodel-estimated choice probabilities\n")
+  print(rt_probs)
+
+  cat("\nE vs S within rt quintiles (holm corrected)\n")
+  print(rt_tests)
+
+}, file = file.path(results_dir, "ES_RT_ChoiceQuintiles_Results.txt"))
+
+write.csv(summary_df, file.path(results_dir, "ES_RT_ChoiceQuintiles_Descriptives.csv"), row.names = FALSE)
+write.csv(rt_probs, file.path(results_dir, "ES_RT_ChoiceQuintiles_Probabilities.csv"), row.names = FALSE)
+write.csv(rt_tests, file.path(results_dir, "ES_RT_ChoiceQuintiles_BinTests.csv"), row.names = FALSE)
+
+```
+
+
+
+# Value Sensitivity calculations in ES,EE,SP - simialr to Garcia et al. (2023)
+
+```{r}
+
+file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+
+excluded_subs <- c(6,14)
+
+data <- read.csv(file) %>%
+  filter(!is.na(sub_id), !sub_id %in% excluded_subs)
+
+es <- data %>%
+  filter(phase == "ES", is.finite(p_E), is.finite(p_S),
+         chose_E %in% 0:1, chose_S %in% 0:1)
+
+ee <- data %>%
+  filter(phase == "EE", is.finite(p1), is.finite(p2),
+         p1 != p2, cho %in% 1:2)
+
+sp <- data %>%
+  filter(phase == "SP", op1 == "E",
+         is.finite(p1), is.finite(cho), between(cho, 0, 1))
+
+stopifnot(
+  setequal(unique(es$sub_id), unique(ee$sub_id)),
+  setequal(unique(es$sub_id), unique(sp$sub_id)),
+  all(es$chose_E + es$chose_S == 1)
+)
+
+
+# estimate indifference points from ES and EE choices
+
+fit_indifference <- function(d) {
+
+  values <- sort(unique(d$assessed))
+  option <- match(d$assessed, values)
+
+  # logistic choice function:
+  # probability of choosing the assessed experiential option
+  negative_loglik <- function(par) {
+    beta <- exp(par[1])
+    midpoint <- par[-1]
+
+    log_odds <- beta * (midpoint[option] - d$alternative)
+
+    -sum(ifelse(d$chosen == 1,
+                plogis(log_odds, log.p = TRUE),
+                plogis(-log_odds, log.p = TRUE)))
+  }
+
+  # estimate one beta and one midpoint per experiential option
+  fit <- nlminb(
+    start = c(0, values),
+    objective = negative_loglik,
+    lower = c(-Inf, rep(0, length(values))),
+    upper = c(Inf, rep(1, length(values)))
+  )
+
+  tibble(
+    p_E = values,
+    midpoint = fit$par[-1],
+    beta = exp(fit$par[1]),
+    converged = fit$convergence == 0
+  )
+}
+
+# ES: experiential option versus symbolic option
+es_mid <- es %>%
+  transmute(sub_id, assessed = p_E, alternative = p_S, chosen = chose_E) %>%
+  group_by(sub_id) %>%
+  group_modify(~ fit_indifference(.x)) %>%
+  ungroup() %>%
+  mutate(phase = "ES")
+
+# EE: experiential option versus another experiential option
+ee_mid <- ee %>%
+  transmute(sub_id, assessed = p1, alternative = p2,
+            chosen = as.integer(cho == 1)) %>%
+  group_by(sub_id) %>%
+  group_modify(~ fit_indifference(.x)) %>%
+  ungroup() %>%
+  mutate(phase = "EE")
+
+fit_mid <- bind_rows(es_mid, ee_mid)
+
+
+# calculate ES and EE slopes
+
+choice_slopes <- fit_mid %>%
+  group_by(sub_id, phase) %>%
+  summarise(
+    slope = unname(coef(lm(midpoint ~ p_E))[2]),
+    .groups = "drop"
+  )
+
+
+# calculate SP slopes
+
+sp_values <- sp %>%
+  group_by(sub_id, p_E = p1) %>%
+  summarise(value = mean(cho), .groups = "drop")
+
+sp_slopes <- sp_values %>%
+  group_by(sub_id) %>%
+  summarise(
+    slope = unname(coef(lm(value ~ p_E))[2]),
+    .groups = "drop"
+  ) %>%
+  mutate(phase = "SP")
+
+
+# combine phases and check fits
+
+slope_data <- bind_rows(choice_slopes, sp_slopes) %>%
+  mutate(phase = factor(phase, levels = c("ES", "EE", "SP")))
+
+fit_check <- fit_mid %>%
+  group_by(sub_id, phase) %>%
+  summarise(
+    converged = all(converged),
+    beta = first(beta),
+    boundary_midpoints = sum(midpoint %in% c(0, 1)),
+    .groups = "drop"
+  )
+
+stopifnot(all(is.finite(slope_data$slope)),
+          nrow(slope_data) == 3 * n_distinct(es$sub_id))
+
+print(fit_check)
+print(slope_data)
+
+# save
+write.csv(fit_mid, file.path(results_dir, "Study2_Garcia_FittedMidpoints.csv"), row.names = FALSE)
+write.csv(slope_data, file.path(results_dir, "Study2_Garcia_ParticipantSlopes.csv"), row.names = FALSE)
+write.csv(sp_values, file.path(results_dir, "Study2_Garcia_SP_E_Ratings.csv"), row.names = FALSE)
+write.csv(fit_check, file.path(results_dir, "Study2_Garcia_FitDiagnostics.csv"), row.names = FALSE)
+
+
+```
+
+
+# Comparison of the fitted value-sensitivity slopes across ES, EE and SP - this uses results saved by the fitting analysis above 
+
+```{r}
+
+file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+phase_cols <- c("ES" = "darkorchid4", "EE" = "deepskyblue4", "SP" = "deeppink4")
+
+# One previously fitted slope per participant and phase
+slopes <- read.csv(file.path(results_dir, "Study2_Garcia_ParticipantSlopes.csv")) %>%
+  mutate(phase = factor(phase, levels = c("ES", "EE", "SP")))
+
+paired <- slopes %>%
+  pivot_wider(names_from = phase, values_from = slope) %>%
+  drop_na(ES, EE, SP)
+slopes <- slopes %>% semi_join(paired, by = "sub_id")
+
+# group means and 95% confidence intervals
+summary_slopes <- slopes %>%
+  group_by(phase) %>%
+  summarise(
+    n = n(),
+    mean_slope = mean(slope),
+    sd_slope = sd(slope),
+    ci_low = t.test(slope)$conf.int[1],
+    ci_high = t.test(slope)$conf.int[2],
+    .groups = "drop"
+  )
+
+# Paired phase comparisons
+phase_tests <- purrr::map_dfr(list(c("ES", "EE"), c("ES", "SP"), c("EE", "SP")), function(ph) {
+  difference <- paired[[ph[1]]] - paired[[ph[2]]]
+  tt <- t.test(difference)
+  tibble(comparison = paste(ph, collapse = " - "), mean_difference = mean(difference),
+         ci_low = tt$conf.int[1], ci_high = tt$conf.int[2],
+         t = unname(tt$statistic), df = unname(tt$parameter), p = tt$p.value,
+         cohen_dz = mean(difference) / sd(difference))
+}) %>% mutate(p_holm = p.adjust(p, method = "holm"))
+
+# Do the slopes differ from 1 (the identity-line benchmark)?
+identity_tests <- slopes %>% group_by(phase) %>% group_modify(~ {
+  tt <- t.test(.x$slope, mu = 1)
+  tibble(t = unname(tt$statistic), df = unname(tt$parameter), p = tt$p.value)
+}) %>% ungroup() %>% mutate(p_holm = p.adjust(p, method = "holm"))
+
+# Mean slope for each phase (red asterisks)
+mean_points <- slopes %>%
+  group_by(phase) %>%
+  summarise(mean_val = mean(slope), .groups = "drop")
+
+# Small horizontal offsets, consistent across phases for each participant
+set.seed(123)
+offsets <- tibble(
+  sub_id = paired$sub_id,
+  offset = runif(nrow(paired), -0.1, 0.1)
+)
+
+plot_slopes <- slopes %>%
+  left_join(offsets, by = "sub_id") %>%
+  mutate(
+    x = as.numeric(phase),
+    jittered_x = x + offset
+  )
+
+# Boxplots with individual observations and paired connections
+p_slopes <- ggplot() +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "gray55") +
+  geom_boxplot(
+    data = plot_slopes,
+    aes(x = x, y = slope, fill = phase, group = phase),
+    width = 0.5, color = "black", linewidth = 0.6,
+    outlier.shape = NA
+  ) +
+  geom_line(
+    data = plot_slopes,
+    aes(x = jittered_x, y = slope, group = sub_id),
+    color = "black", alpha = 0.05
+  ) +
+  geom_point(
+    data = plot_slopes,
+    aes(x = jittered_x, y = slope),
+    color = "black", size = 2, alpha = 0.3
+  ) +
+  geom_text(
+    data = mean_points,
+    aes(x = as.numeric(phase), y = mean_val, label = "*"),
+    size = 13, color = "red"
+  ) +
+  scale_fill_manual(values = phase_cols) +
+  scale_x_continuous(breaks = 1:3, labels = c("ES", "EE", "SP")) +
+  labs(
+    title = "Value Sensitivity",
+    x = NULL,
+    y = "Value-sensitivity Slope"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.major.y = element_line(color = "gray80", linewidth = 0.2),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.ticks.x = element_line(color = "black"),
+    axis.ticks.y = element_blank(),
+    axis.ticks.length = unit(4, "pt"),
+    axis.line = element_blank(),
+    plot.title = element_text(size = 18),
+    axis.title.y = element_text(size = 18, color = "black"),
+    axis.text.x = element_text(size = 18, color = "black"),
+    axis.text.y = element_text(size = 18, color = "black"),
+    legend.position = "none"
+  )
+
+print(p_slopes)
+
+# Save figures
+fig_out <- file.path(output_dir, "Study2_Garcia_PhaseSlopes.pdf")
+
+ggsave(fig_out, p_slopes, width = 4, height = 4, dpi = 300)
+ggsave(sub("\\.pdf$", ".png", fig_out),
+       p_slopes, width = 4, height = 4, dpi = 300)
+# Save statistical results
+
+capture.output({
+  cat("Study 2: Value-sensitivity slopes across phases\n\n")
+  cat("Participants:", nrow(paired), "\n\n")
+  cat("Descriptive statistics (mean, SD, 95% CI)\n")
+  print(summary_slopes)
+  cat("\nPaired phase comparisons (Holm-corrected)\n")
+  print(phase_tests)
+  cat("\nOne-sample tests against slope = 1 (Holm-corrected)\n")
+  print(identity_tests)
+}, file = file.path(results_dir, "Study2_Garcia_PhaseSlopes_Results.txt"))
+
+write.csv(
+  phase_tests,
+  file.path(results_dir, "Study2_Garcia_PhaseSlopes_Pairwise.csv"),
+  row.names = FALSE
+)
+```
+
+
+# ES choice curves
+
+```{r}
+
+file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+
+excluded_subs <- c(6, 14)
+
+# Observed probability of choosing E for each E-S combination
+es <- read.csv(file) %>%
+  filter(
+    phase == "ES",
+    !is.na(sub_id),
+    !sub_id %in% excluded_subs,
+    is.finite(p_E),
+    is.finite(p_S),
+    chose_E %in% 0:1
+  )
+
+choice_curves <- es %>%
+  group_by(sub_id, p_E, p_S) %>%
+  summarise(p_choose_E = mean(chose_E), .groups = "drop") %>%
+  group_by(p_E, p_S) %>%
+  summarise(probability = mean(p_choose_E), .groups = "drop")
+
+
+# Find where each observed choice curve crosses 50%
+
+find_indifference <- function(d) {
+
+  d <- arrange(d, p_S)
+  x <- d$p_S
+  y <- d$probability
+
+  # Identify segments that cross the 50% choice line
+  i <- which(
+    (head(y, -1) - 0.5) * (tail(y, -1) - 0.5) <= 0 &
+      head(y, -1) != tail(y, -1)
+  )
+
+  # Calculate the exact intersection on each segment
+  crossing <- x[i] +
+    (0.5 - y[i]) * (x[i + 1] - x[i]) / (y[i + 1] - y[i])
+
+  tibble(midpoint = unique(crossing))
+}
+
+indifference <- choice_curves %>%
+  group_by(p_E) %>%
+  group_modify(~ find_indifference(.x)) %>%
+  ungroup()
+
+# Check that every E-option has exactly one crossing
+stopifnot(
+  nrow(indifference) == n_distinct(choice_curves$p_E),
+  all(table(indifference$p_E) == 1)
+)
+
+
+# darker colours indicate higher E probabilities
+e_levels <- sort(unique(es$p_E))
+e_labels <- paste0(round(100 * e_levels), "%")
+
+orange_cols <- setNames(
+  colorRampPalette(c("#fee6ce", "#e6550d"))(length(e_levels)),
+  e_labels
+)
+
+choice_curves <- choice_curves %>%
+  mutate(e_level = factor(paste0(round(100 * p_E), "%"),
+                          levels = e_labels))
+
+indifference <- indifference %>%
+  mutate(e_level = factor(paste0(round(100 * p_E), "%"),
+                          levels = e_labels))
+
+
+# Plot observed curves and their 50% intersections
+p_choice <- ggplot(choice_curves,
+                   aes(x = p_S, y = probability, color = e_level)) +
+  geom_hline(yintercept = 0.5, linetype = "dotted", color = "gray45") +
+  geom_line(aes(group = e_level), linewidth = 1.7) +
+  geom_point(
+    data = indifference,
+    aes(x = midpoint, y = 0.5, color = e_level),
+    inherit.aes = FALSE,
+    size = 3.4
+  ) +
+  scale_color_manual(values = orange_cols, name = "E-option p(win)") +
+  scale_x_continuous(labels = scales::label_percent(accuracy = 1)) +
+  scale_y_continuous(labels = scales::label_percent(accuracy = 1)) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(
+    title = "ES Choice Curves",
+    x = "S-option p(win)",
+    y = "P(choose E)"
+  ) +
+  theme_classic(base_size = 18) +
+  theme(
+    axis.text.x = element_text(size = 18, color = "black"),
+    axis.text.y = element_text(size = 18, color = "black"),
+    legend.position = "right"
+  )
+
+print(p_choice)
+
+
+# Save figure
+fig_out <- file.path(output_dir, "Study2_Garcia_ES_ChoiceCurves.pdf")
+
+ggsave(fig_out, p_choice, width = 6.5, height = 4, bg = "white")
+ggsave(sub("\\.pdf$", ".png", fig_out),
+       p_choice, width = 6.5, height = 4, dpi = 300, bg = "white")
+
+
+# Save empirical indifference points and descriptive information
+capture.output({
+  cat("Study 2: ES choice curves and empirical indifference points\n\n")
+  cat("Participants:", n_distinct(es$sub_id), "\n")
+  cat("Trials:", nrow(es), "\n\n")
+  cat("Intersections of observed group choice curves with P(choose E) = 0.50\n")
+  print(indifference %>% select(p_E, midpoint))
+
+}, file = file.path(results_dir, "Study2_Garcia_ES_ChoiceCurves_Results.txt"))
+
+write.csv(
+  indifference,
+  file.path(results_dir, "Study2_Garcia_ES_EmpiricalIndifferencePoints.csv"),
+  row.names = FALSE
+)
+
+```
+
+# ES, EE, SP value functions (ES,EE are estimated indifference probs from choices; SP are stated prob. ratings of experiential options)
+
+
+```{r}
+# dashed line is teh objective prob. and teh coloured solid lines are linear fits to the mean values
+
+file <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/data_sets/Study2_Behaviour_with_Gaze_AnalysisReady.csv"
+output_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/figures/behav/"
+results_dir <- "D:/Birmingham_Uni_Oct25/Eye_Tracking_Project/Study2/results/tables/behav/"
+
+phase_cols <- c("ES" = "darkorchid4", "EE" = "deepskyblue4", "SP" = "deeppink4")
+
+# Use the estimates generated by your first analysis (no re-fitting).
+midpoints <- read.csv(file.path(results_dir, "Study2_Garcia_FittedMidpoints.csv"))
+sp_ratings <- read.csv(file.path(results_dir, "Study2_Garcia_SP_E_Ratings.csv"))
+
+values <- bind_rows(
+  midpoints %>% transmute(sub_id, phase, p_E, value = midpoint),
+  sp_ratings %>% transmute(sub_id, phase = "SP", p_E, value)
+) %>% mutate(phase = factor(phase, levels = c("ES", "EE", "SP")))
+
+# All three phases must have the same participant sample and E probability levels.
+coverage <- values %>% count(sub_id, phase)
+stopifnot(n_distinct(coverage$phase) == 3,
+          all(coverage$n == 8),
+          nrow(coverage) == 3 * n_distinct(values$sub_id))
+
+# Participant-averaged values and 95% confidence intervals.
+value_summary <- values %>%
+  group_by(phase, p_E) %>%
+  summarise(
+    n = n(),
+    mean_value = mean(value),
+    sd_value = sd(value),
+    ci_low = t.test(value)$conf.int[1],
+    ci_high = t.test(value)$conf.int[2],
+    .groups = "drop"
+  )
+
+# Plot mean experiential value estimates across phases
+
+p_values <- ggplot(value_summary, aes(p_E, mean_value, color = phase)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray55") +
+  geom_line(aes(group = phase), linewidth = 1.1) +
+  geom_errorbar(aes(ymin = ci_low, ymax = ci_high),
+                width = .015, linewidth = .7) +
+  geom_point(size = 3.2) +
+  scale_color_manual(values = phase_cols) +
+  scale_x_continuous(breaks = seq(0, 1, .2), labels = scales::label_percent()) +
+  scale_y_continuous(breaks = seq(0, 1, .2), labels = scales::label_percent()) +
+  coord_fixed(ratio = 1, xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(title = "Experiential Value Estimates",
+       x = "Objective E-option P(win)", y = " Estimated P(win)", color = "Phase") +
+  theme_classic(base_size = 18) +
+  theme(
+    plot.title = element_text(size = 20),
+    axis.title = element_text(size = 18, color = "black"),
+    axis.text = element_text(size = 18, color = "black"),
+    legend.position = "top"
+  )
+
+print(p_values)
+
+fig_out <- file.path(output_dir, "Study2_Garcia_ES_EE_SP_ValueFunctions.pdf")
+ggsave(fig_out, p_values, width = 6, height = 6, bg = "white")
+ggsave(sub("\\.pdf$", ".png", fig_out), p_values,
+       width = 6, height = 6, dpi = 300, bg = "white")
+
+capture.output({
+  cat("study 2: value estimates across ES, EE and SP\n\n")
+  cat("participants:", n_distinct(values$sub_id), "\n\n")
+  cat("ES and EE: estimated indifference points; SP: stated experiential ratings\n\n")
+  cat("Descriptive statistics (mean, SD, 95% CI)\n")
+  print(value_summary)
+}, file = file.path(results_dir, "Study2_Garcia_ES_EE_SP_ValueFunctions_Results.txt"))
+
+write.csv(value_summary,
+          file.path(results_dir, "Study2_Garcia_ES_EE_SP_ValueFunctions.csv"),
+          row.names = FALSE)
+
+```
+

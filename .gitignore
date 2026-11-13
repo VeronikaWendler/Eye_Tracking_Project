@@ -1,0 +1,15 @@
+Study2/Study2_Data/
+Study1/Study1_Data/
+Archive/
+.venv/
+Presentations/
+Paper/
+.vscode/
+.Rproj.user/
+.RData
+.RDataTmp
+.RDataTmp1
+.Rhistory
+Eye_Tracking_Project.Rproj
+Study1/data_sets/
+Study2/data_sets/

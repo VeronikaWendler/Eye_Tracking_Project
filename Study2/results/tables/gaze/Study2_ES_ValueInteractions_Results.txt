@@ -1,0 +1,80 @@
+study 2: fixation-history interactions with option value
+
+participants: 20 
+trials: 3305 
+
+joint likelihood-ratio test
+Data: switch_dat
+Models:
+m_switch: chose_previous ~ previous_source + value_diff_z + overall_value_z + (1 | sub_id)
+m_interaction: chose_previous ~ previous_source + value_diff_z + overall_value_z + (1 | sub_id) + previous_source:value_diff_z + previous_source:overall_value_z
+              npar    AIC    BIC  logLik -2*log(L)  Chisq Df Pr(>Chisq)    
+m_switch         5 2581.4 2611.9 -1285.7    2571.4                         
+m_interaction    7 2525.8 2568.5 -1255.9    2511.8 59.561  2  1.166e-13 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+individual interaction tests (holm corrected)
+                             term npar      AIC          LRT      Pr(Chi)       p_holm
+1    previous_source:value_diff_z    1 2523.795 8.963871e-04 9.761151e-01 9.761151e-01
+2 previous_source:overall_value_z    1 2583.243 5.944798e+01 1.255696e-14 2.511393e-14
+
+interaction odds ratios and 95% ci
+# A tibble: 2 × 8
+  effect term                             estimate std.error statistic  p.value conf.low conf.high
+  <chr>  <chr>                               <dbl>     <dbl>     <dbl>    <dbl>    <dbl>     <dbl>
+1 fixed  previous_sourceE:value_diff_z       1.00     0.154     0.0300 9.76e- 1    0.744     1.36 
+2 fixed  previous_sourceE:overall_value_z    0.492    0.0462   -7.55   4.50e-14    0.409     0.592
+
+value-difference slopes by source (95% ci)
+ previous_source value_diff_z.trend    SE  df asymp.LCL asymp.UCL
+ S                             2.08 0.118 Inf      1.85      2.31
+ E                             2.08 0.100 Inf      1.89      2.28
+
+Confidence level used: 0.95 
+
+overall-value slopes by source (95% ci)
+ previous_source overall_value_z.trend     SE  df asymp.LCL asymp.UCL
+ S                               0.507 0.0739 Inf     0.362    0.6522
+ E                              -0.202 0.0577 Inf    -0.315   -0.0888
+
+Confidence level used: 0.95 
+
+model diagnostics
+singular fit: FALSE 
+Generalized linear mixed model fit by maximum likelihood (Laplace Approximation) ['glmerMod']
+ Family: binomial  ( logit )
+Formula: chose_previous ~ previous_source + value_diff_z + overall_value_z +      (1 | sub_id) + previous_source:value_diff_z + previous_source:overall_value_z
+   Data: switch_dat
+Control: model_control
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+   2525.8    2568.5   -1255.9    2511.8      3298 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-5.6114 -0.4246 -0.1746  0.3261 10.0101 
+
+Random effects:
+ Groups Name        Variance Std.Dev.
+ sub_id (Intercept) 0.2927   0.5411  
+Number of obs: 3305, groups:  sub_id, 20
+
+Fixed effects:
+                                  Estimate Std. Error z value Pr(>|z|)    
+(Intercept)                      -1.979360   0.162079 -12.212  < 2e-16 ***
+previous_sourceE                  1.174757   0.124544   9.432  < 2e-16 ***
+value_diff_z                      2.077367   0.117791  17.636  < 2e-16 ***
+overall_value_z                   0.507269   0.073922   6.862 6.78e-12 ***
+previous_sourceE:value_diff_z     0.004602   0.153343   0.030    0.976    
+previous_sourceE:overall_value_z -0.709182   0.093984  -7.546 4.50e-14 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+               (Intr) prvs_E vl_df_ ovrl__ prvs_srcE:vl__
+previs_srcE    -0.531                                    
+value_dff_z    -0.406  0.513                             
+overll_vl_z    -0.156  0.208  0.202                      
+prvs_srcE:vl__  0.297 -0.484 -0.756 -0.151               
+prvs_srcE:vr__  0.129 -0.163 -0.161 -0.789  0.070        

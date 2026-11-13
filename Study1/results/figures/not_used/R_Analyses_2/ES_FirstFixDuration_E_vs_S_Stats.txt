@@ -1,0 +1,76 @@
+WITHIN-ES FIRST-FIXATION DURATION: E VS S
+===========================================
+
+Participant-level descriptive means
+# A tibble: 2 × 6
+  first_identity  mean    sd n_sub    se  ci95
+  <fct>          <dbl> <dbl> <int> <dbl> <dbl>
+1 E               238.  76.1    21  16.6  34.6
+2 S               242.  61.3    21  13.4  27.9
+
+Participant-level paired t-test: S - E
+
+	Paired t-test
+
+data:  first_es_wide$S and first_es_wide$E
+t = 0.43499, df = 20, p-value = 0.6682
+alternative hypothesis: true mean difference is not equal to 0
+95 percent confidence interval:
+ -18.62719  28.44286
+sample estimates:
+mean difference 
+       4.907835 
+
+
+Trial-level mixed model
+Linear mixed model fit by maximum likelihood . t-tests use Satterthwaite's method ['lmerModLmerTest']
+Formula: FirstFixDur ~ first_identity + (1 | sub_id)
+   Data: first_es
+
+      AIC       BIC    logLik -2*log(L)  df.resid 
+  94308.5   94336.0  -47150.2   94300.5      7226 
+
+Scaled residuals: 
+    Min      1Q  Median      3Q     Max 
+-2.3976 -0.4969 -0.1504  0.1733 15.8471 
+
+Random effects:
+ Groups   Name        Variance Std.Dev.
+ sub_id   (Intercept)  3927     62.66  
+ Residual             26732    163.50  
+Number of obs: 7230, groups:  sub_id, 21
+
+Fixed effects:
+                Estimate Std. Error      df t value Pr(>|t|)    
+(Intercept)       237.75      13.97   21.88  17.020 4.18e-14 ***
+first_identityS     5.94       3.91 7216.00   1.519    0.129    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+Correlation of Fixed Effects:
+            (Intr)
+frst_dnttyS -0.151
+
+Omnibus test
+Type III Analysis of Variance Table with Satterthwaite's method
+               Sum Sq Mean Sq NumDF DenDF F value Pr(>F)
+first_identity  61683   61683     1  7216  2.3074 0.1288
+
+Estimated marginal means
+ first_identity emmean   SE  df asymp.LCL asymp.UCL
+ E                 238 14.0 Inf       210       265
+ S                 244 13.9 Inf       216       271
+
+Degrees-of-freedom method: asymptotic 
+Confidence level used: 0.95 
+
+S - E contrast
+ contrast estimate   SE  df z.ratio p.value
+ S - E        5.94 3.91 Inf   1.519  0.1288
+
+Degrees-of-freedom method: asymptotic 
+
+Random effects
+ Groups   Name        Std.Dev.
+ sub_id   (Intercept)  62.663 
+ Residual             163.500 
