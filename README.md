@@ -21,8 +21,6 @@ The final datasets and audit files are written to each study’s `data_sets/` fo
 
 ## Analyses
 
-If you already have the analysis-ready CSVs, start here. Open the notebooks in the corresponding study’s analysis folder and run each notebook from top to bottom. The behavioural and gaze notebooks can run independently.
-
 | Analysis | Study 1 | Study 2 |
 |---|---|---|
 | Accuracy, reaction time, choice, and value sensitivity | `Study1_Analysis/Study1_Behavioural_Analyses.Rmd` | `Study2_Analysis/Study2_Behavioural_Analyses.Rmd` |
